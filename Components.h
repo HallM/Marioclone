@@ -5,7 +5,6 @@
 #include <SFML/Graphics.hpp>
 
 #include "Assets.h"
-#include "EntityManager.h"
 
 struct Sprite {
 	sf::Texture* t;
@@ -128,13 +127,3 @@ struct Mortal {
 	Mortal() : health(1) {}
 	Mortal(int h) : health(h) {}
 };
-
-typedef MattECS::TemplateEntityManager<
-	Sprite,
-	Animation,
-	Transform,
-	Movement,
-	AABB,
-	Sensors,
-	Mortal
-> EntityManager;

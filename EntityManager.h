@@ -12,8 +12,15 @@
 namespace MattECS {
 	typedef size_t EntityID;
 
+	class IComponentManager {
+	public:
+		virtual ~IComponentManager() = default;
+		virtual void update_all() = 0;
+		virtual void delete_item(EntityID id) = 0;
+	};
+
 	template <typename C>
-	class ComponentManager {
+	class ComponentManager : public IComponentManager {
 	public:
 		class iterator {
 			unsigned int _index = 0;
@@ -33,6 +40,7 @@ namespace MattECS {
 		};
 
 		ComponentManager() : _should_sort(false), _changed(false) {}
+		virtual ~ComponentManager() {}
 
 		iterator begin() { return iterator(this, 0); }
 		iterator end() { return iterator(this, _ids.size()); }
@@ -60,7 +68,7 @@ namespace MattECS {
 			return &_values[it->second];
 		}
 
-		void delete_item(EntityID id) {
+		virtual void delete_item(EntityID id) {
 			if (_id_to_index.find(id) != _id_to_index.end()) {
 				_changed = true;
 				_deleted_items.push_back(id);
@@ -85,7 +93,7 @@ namespace MattECS {
 			_changed = true;
 		}
 
-		void update_all() {
+		virtual void update_all() {
 			for (auto id : _deleted_items) {
 				unsigned int index = _id_to_index[id];
 				unsigned int last = _ids.size() - 1;
@@ -173,15 +181,17 @@ namespace MattECS {
 		std::vector<EntityID> _deleted_items;
 	};
 
-	template <typename... Components>
-	class TemplateEntityManager {
+	class EntityManager {
 	public:
 		template <typename CFirst, typename... COthers>
 		class Querier {
 		public:
 			class iterator {
 			public:
-				iterator(ComponentManager<CFirst>::iterator it, ComponentManager<CFirst>::iterator end, std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...>& cmanagers) : _it(it), _end(end), _cmanagers(cmanagers) {
+				iterator(ComponentManager<CFirst>::iterator it, ComponentManager<CFirst>::iterator end, std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...>& cmanagers, bool is_optional[1 + sizeof...(COthers)]) : _it(it), _end(end), _cmanagers(cmanagers) {
+					for (unsigned int i = 1; i < sizeof...(COthers) + 1; i++) {
+						_is_optional[i] = is_optional[i];
+					}
 					_set_values();
 					if (!_has_all && _it != _end) {
 						_next();
@@ -193,28 +203,34 @@ namespace MattECS {
 					_next();
 					return *this;
 				}
-				// postfix
-				iterator operator++(int) {
-					iterator it(_it, _end, _values);
-					_it++;
-					return it;
-				}
+				//// postfix
+				//iterator operator++(int) {
+				//	iterator it(_it, _end, _values);
+				//	++_it;
+				//	return it;
+				//}
 
 				bool operator==(iterator other) const { return _it == other._it; }
 				bool operator!=(iterator other) const { return _it != other._it; }
 
 				EntityID entity() const { return _it.entity(); }
-				std::tuple<CFirst*, COthers*...>& values() {
-					return _values;
+				template <typename C>
+				const C* value() {
+					return std::get<C*>(_values);
+				}
+				template <typename C>
+				C* mut() {
+					std::get<ComponentManager<C>*>(_cmanagers)->set_changed();
+					return std::get<C*>(_values);
 				}
 			private:
-				iterator(ComponentManager<CFirst>::iterator it, ComponentManager<CFirst>::iterator end, std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...>& cmanagers, std::tuple<CFirst*, COthers*...>& v) : _it(it), _end(end), _cmanagers(cmanagers), _values(v), _has_all(true) {
-					// assume that this is a legit point
-				}
+				//iterator(ComponentManager<CFirst>::iterator it, ComponentManager<CFirst>::iterator end, std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...>& cmanagers, std::tuple<CFirst*, COthers*...>& v) : _it(it), _end(end), _cmanagers(cmanagers), _values(v), _has_all(true) {
+				//	// assume that this is a legit point
+				//}
 
 				void _next() {
 					do {
-						_it++;
+						++_it;
 						_set_values();
 					} while (!_has_all && _it != _end);
 				}
@@ -228,13 +244,12 @@ namespace MattECS {
 						_it.value(),
 						std::get<ComponentManager<COthers>*>(_cmanagers)->value(id)...
 					);
-					if (_it.value() == nullptr) {
-						_has_all = false;
-						return;
-					}
-					bool isNulls[sizeof...(COthers)] = { (std::get<COthers*>(_values) == nullptr)... };
-					for (unsigned int i = 0; i < sizeof...(COthers); i++) {
-						if (isNulls[i]) {
+					bool isNulls[sizeof...(COthers) + 1] = {
+						_it.value() == nullptr,
+						(std::get<COthers*>(_values) == nullptr)...
+					};
+					for (unsigned int i = 1; i < sizeof...(COthers) + 1; i++) {
+						if (!_is_optional[i] && isNulls[i]) {
 							_has_all = false;
 							break;
 						}
@@ -244,31 +259,51 @@ namespace MattECS {
 				std::tuple<CFirst*, COthers*...> _values;
 				ComponentManager<CFirst>::iterator _it;
 				ComponentManager<CFirst>::iterator _end;
+				bool _is_optional[1 + sizeof...(COthers)];
 				std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...> _cmanagers;
 			};
-			
-			Querier(std::tuple<ComponentManager<CFirst>*,ComponentManager<COthers>*...> managers) : _cmanagers(managers) {}
+
+			Querier(std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...> managers) : _cmanagers(managers) {
+				for (size_t i = 0; i < 1 + sizeof...(COthers); ++i) {
+					_is_optional[i] = false;
+				}
+			}
+
+			// Setting optional on the first is a NOOP. its not possible, sorry.
+			template <typename C>
+			Querier& optional() {
+				// TODO: fail on setting CFirst as optional
+				_is_optional[_cindex<C, CFirst, COthers...>()] = true;
+				return *this;
+			}
 
 			iterator begin() {
 				auto cm = std::get<ComponentManager<CFirst>*>(_cmanagers);
-				return iterator(cm->begin(), cm->end(), _cmanagers);
+				return iterator(cm->begin(), cm->end(), _cmanagers, _is_optional);
 			}
 			iterator end() {
 				auto cm = std::get<ComponentManager<CFirst>*>(_cmanagers);
-				return iterator(cm->end(), cm->end(), _cmanagers);
+				return iterator(cm->end(), cm->end(), _cmanagers, _is_optional);
 			}
 			iterator find(EntityID id) {
 				auto cm = std::get<ComponentManager<CFirst>*>(_cmanagers);
-				return iterator(cm->find(id), cm->end(), _cmanagers);
+				return iterator(cm->find(id), cm->end(), _cmanagers, _is_optional);
 			}
 		private:
 			std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...> _cmanagers;
+			bool _is_optional[1 + sizeof...(COthers)];
+
+			template<typename CT, typename CH, typename... CR>
+			constexpr size_t _cindex() {
+				if constexpr (std::is_same<CT, CH>::value) {
+					return 0;
+				}
+				return 1 + _cindex<CT, CR...>();
+			}
 		};
 
-		TemplateEntityManager() {
+		EntityManager() {
 			_last_id = 0;
-
-			register_component<Components...>();
 		}
 
 		template <typename CFirst, typename... COthers>
@@ -281,25 +316,17 @@ namespace MattECS {
 			);
 		}
 
+		~EntityManager() {
+			for (auto& it : _idautomanagers) {
+				delete it.second;
+			}
+		}
+
 		template <typename C>
 		void register_component() {
 			auto ti = std::type_index(typeid(C));
 			ComponentManager<C>* new_cm = new ComponentManager<C>();
-			_idautomanagers[ti] = (void*)new_cm;
-		}
-		template <typename C, typename Second, typename... Others>
-		void register_component() {
-			register_component<C>();
-			register_component<Second, Others...>();
-		}
-
-		~TemplateEntityManager() {
-			for (auto& it : _idautomanagers) {
-				delete it.second;
-			}
-			for (size_t i = 0; i < _automanagers.size(); i++) {
-				delete _automanagers[i];
-			}
+			_idautomanagers[ti] = new_cm;
 		}
 
 		EntityID entity() {
@@ -327,20 +354,6 @@ namespace MattECS {
 			return std::make_tuple(get<CFirst>(id), get<CSecond>(id), get<COthers>(id)...);
 		}
 
-		// Much like getComponents() except the first part is bool to let you know if ALL are there.
-		template <typename... C>
-		std::optional<std::tuple<const C*...>> require(EntityID id) {
-			auto v = std::make_tuple(get<C>(id)...);
-			bool isNulls[sizeof...(C)] = { (std::get<const C*>(v) == nullptr)... };
-			bool anyNull = false;
-			for (unsigned int i = 0; i < sizeof...(C); i++) {
-				if (isNulls[i]) {
-					return {};
-				}
-			}
-			return v;
-		}
-
 		template <typename C, typename... Args>
 		void add(EntityID id, Args&&... args) {
 			auto c = _manager<C>();
@@ -359,7 +372,9 @@ namespace MattECS {
 		}
 
 		void remove_all(EntityID id) {
-			remove<Components...>(id);
+			for (auto& it : _idautomanagers) {
+				it.second->delete_item(id);
+			}
 		}
 
 		template <typename C>
@@ -377,159 +392,16 @@ namespace MattECS {
 		// to avoid invalidating iterators. This will finalize added/removed
 		// components and entities.
 		void finalize_update() {
-			_finalize_component<Components...>();
-		}
-
-		// Try to order Cs from smallest to largest.
-		template <typename CFirst, typename... COthers>
-		void forEach(std::function<void(EntityID, const CFirst*, const COthers*...)> callable) {
-			auto wrapped = [this, &callable](EntityID id, const CFirst* v1, const COthers*... vrest) -> bool {
-				callable(id, v1, vrest...);
-				return true;
-			};
-			forUntil<CFirst, COthers...>(wrapped);
-		}
-		template <typename C>
-		void forEach(std::function<void(EntityID, const C*)> callable) {
-			auto wrapped = [this, &callable](EntityID id, const C* v) -> bool {
-				callable(id, v);
-				return true;
-			};
-			forUntil<C>(wrapped);
-		}
-
-		template <typename CFirst, typename... COthers>
-		void forUntil(std::function<bool(EntityID, const CFirst*, const COthers*...)> callable) {
-			auto c = _manager<CFirst>();
-			for (auto it = c->begin(); it != c->end(); it++) {
-				EntityID id = it.entity();
-				const CFirst* elem1 = it.value();
-
-				auto maybe = require<COthers...>(id);
-				if (maybe) {
-					auto v = maybe.value();
-					if (!callable(id, elem1, std::get<const COthers*>(v)...)) {
-						return;
-					}
-				}
+			for (auto& it : _idautomanagers) {
+				it.second->update_all();
 			}
-		}
-		template <typename CFirst>
-		void forUntil(std::function<bool(EntityID, const CFirst*)> callable) {
-			auto c = _manager<CFirst>();
-			for (auto it = c->begin(); it != c->end(); it++) {
-				EntityID id = it.entity();
-				const CFirst* elem1 = it.value();
-				if (!callable(id, elem1)) {
-					return;
-				}
-			}
-		}
-
-		// In the callback, return false when we shouldnt keep searching in that direction.
-		// The items to the left are done first, then the right.
-		// The start element is included as the first entity
-		template <typename CFirst, typename... COthers>
-		void forAround(EntityID start, std::function<bool(EntityID, const CFirst*, const COthers*...)> callable) {
-			auto c = _manager<CFirst>();
-			for (auto it = c->find(start); it != c->begin(); it--) {
-				EntityID id = it.entity();
-				const CFirst* elem1 = it.value();
-
-				auto maybe = require<COthers...>(id);
-				if (maybe) {
-					auto v = maybe.value();
-					if (!callable(id, elem1, std::get<const COthers*>(v)...)) {
-						break;
-					}
-				}
-			}
-			auto start_it = c->find(start);
-			for (auto it = ++start_it; it != c->end(); it++) {
-				EntityID id = it.entity();
-				const CFirst* elem1 = it.value();
-
-				auto maybe = require<COthers...>(id);
-				if (maybe) {
-					auto v = maybe.value();
-					if (!callable(id, elem1, std::get<const COthers*>(v)...)) {
-						break;
-					}
-				}
-			}
-		}
-		template <typename CFirst>
-		void forAround(EntityID start, std::function<bool(EntityID, const CFirst*)> callable) {
-			auto c = _manager<CFirst>();
-			for (auto it = c->find(start); it != c->begin(); it--) {
-				EntityID id = it.entity();
-				const CFirst* elem1 = it.value();
-				if (!callable(id, elem1)) {
-					break;
-				}
-			}
-			auto start_it = c->find(start);
-			for (auto it = ++start_it; it != c->end(); it++) {
-				EntityID id = it.entity();
-				const CFirst* elem1 = it.value();
-				if (!callable(id, elem1)) {
-					break;
-				}
-			}
-		}
-
-		// Try to order Cs from smallest to largest.
-		template <typename Value, typename CFirst, typename... COthers>
-		Value reduce(std::function<Value(Value, EntityID, const CFirst*, const COthers*...)> callable, Value start) {
-			Value cur = start;
-			auto c = _manager<CFirst>();
-			for (auto it = c->begin(); it != c->end(); it++) {
-				EntityID id = it.entity();
-				const CFirst* elem1 = it.value();
-
-				auto maybe = requireComponents<COthers...>(id);
-				if (maybe) {
-					auto v = maybe.value();
-					cur = callable(cur, id, elem1, std::get<const COthers*>(v)...);
-				}
-			}
-			return cur;
-		}
-		template <typename Value, typename CFirst>
-		Value reduce(std::function<Value(Value, EntityID, const CFirst*)> callable, Value start) {
-			Value cur = start;
-			auto c = _manager<CFirst>();
-			for (auto it = c->begin(); it != c->end(); it++) {
-				EntityID id = it.entity();
-				const CFirst* elem1 = it.value();
-				cur = callable(cur, id, elem1);
-			}
-			return cur;
 		}
 	private:
 		template <typename C>
 		ComponentManager<C>* _manager() {
 			// return &std::get<ComponentManager<C>>(_cmanagers);
-
 			auto ti = std::type_index(typeid(C));
 			return (ComponentManager<C>*)_idautomanagers[ti];
-			//auto it = _idautomanagers.find(ti);
-			//if (it != _idautomanagers.end()) {
-			//	return ((ComponentManager<C>*)it->second);
-			//}
-			//ComponentManager<C>* new_cm = new ComponentManager<C>();
-			//_idautomanagers[ti] = (void*)new_cm;
-			//return new_cm;
-
-			//auto it = _amindex.find(typeid(C));
-			//if (it != _amindex.end()) {
-			//	return ((ComponentManager<C>*)_automanagers[it->second]);
-			//}
-			//ComponentManager<C>* new_cm = new ComponentManager<C>();
-			//size_t index = _automanagers.size();
-			//_automanagers.push_back((void*)new_cm);
-			//_amindex[typeid(C)] = index;
-			//return new_cm;
 		}
 
 		template <typename C>
@@ -547,21 +419,7 @@ namespace MattECS {
 			return std::make_tuple(get_mut<CFirst>(id), get_mut<CSecond>(id), get_mut<COthers>(id)...);
 		}
 
-		template <typename C>
-		void _finalize_component() {
-			auto c = _manager<C>();
-			c->update_all();
-		}
-		template <typename C, typename Second, typename... Others>
-		void _finalize_component() {
-			_finalize_component<C>();
-			_finalize_component<Second, Others...>();
-		}
-
 		EntityID _last_id;
-		std::tuple<ComponentManager<Components>...> _cmanagers;
-		std::unordered_map<std::type_index, void*> _idautomanagers;
-		std::unordered_map<std::type_index, size_t> _amindex;
-		std::vector<void*> _automanagers;
+		std::unordered_map<std::type_index, IComponentManager*> _idautomanagers;
 	};
 };

@@ -9,6 +9,7 @@
 #include "Action.h"
 #include "AssetManager.h"
 #include "Components.h"
+#include "EntityManager.h"
 #include "GameManager.h"
 
 // Loop systems are run every game loop.
@@ -89,7 +90,7 @@ public:
 protected:
 	AssetManager* _asset_manager;
 
-	EntityManager _entity_manager;
+	MattECS::EntityManager _entity_manager;
 	// std::unordered_map<SceneStage, std::vector<System>> _systems;
 	std::vector<LoopSystem> _begin_loop_systems;
 	std::vector<LoopSystem> _end_loop_systems;

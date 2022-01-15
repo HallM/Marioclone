@@ -1,5 +1,7 @@
 #include "AssetManager.h"
 
+#include <iostream>
+
 AssetManager::AssetManager(Assets* config) {
 	_config = config;
 }

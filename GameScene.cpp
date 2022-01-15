@@ -41,6 +41,14 @@ const int ENTITY_HARDNESS = 0;
 
 
 GameScene::GameScene(AssetManager* asset_manager, TileMap* level) : BaseScene(asset_manager), _camera(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)), _gui_view(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)) {
+	_entity_manager.register_component<Sprite>();
+	_entity_manager.register_component<Animation>();
+	_entity_manager.register_component<Transform>();
+	_entity_manager.register_component<Movement>();
+	_entity_manager.register_component<AABB>();
+	_entity_manager.register_component<Sensors>();
+	_entity_manager.register_component<Mortal>();
+
 	_level = level;
 	// This will be initialized in Load.
 	_player = 0;
@@ -222,33 +230,28 @@ void GameScene::Show(GameManager* gm) {
 // Components: Velocity*, BulletSpawner
 // May spawn with: Velocity, AABB, Lifetime, Animation
 std::vector<Action> GameScene::InputSystem(GameManager* gm, std::vector<Action> actions, const std::unordered_map<ActionType, ActionState>& action_states) {
-	const Sensors* s = _entity_manager.get<Sensors>(_player);
+	auto smq = _entity_manager.query<Sensors, Movement>();
+	auto it = smq.find(_player);
+
+	const Sensors* s = it.value<Sensors>();
 
 	if (action_states.find(ActionType::LEFT)->second == ActionState::START) {
 		if (!s->left) {
-			_entity_manager.update<Movement>(_player, [this](Movement* m) {
-				m->velocity.x = -_level->player.horizontal_speed;
-			});
+			it.mut<Movement>()->velocity.x = -_level->player.horizontal_speed;
 		}
 	}
 	else if (action_states.find(ActionType::RIGHT)->second == ActionState::START) {
 		if (!s->right) {
-			_entity_manager.update<Movement>(_player, [this](Movement* m) {
-				m->velocity.x = _level->player.horizontal_speed;
-			});
+			it.mut<Movement>()->velocity.x = _level->player.horizontal_speed;
 		}
 	}
 	else {
-		_entity_manager.update<Movement>(_player, [this](Movement* m) {
-			m->velocity.x = 0.0f;
-		});
+		it.mut<Movement>()->velocity.x = 0;
 	}
 
 	if (action_states.find(ActionType::JUMP)->second == ActionState::START) {
 		if (!s->top && s->bottom) {
-			_entity_manager.update<Movement>(_player, [this](Movement* m) {
-				m->velocity.y = -_level->player.jump_speed;
-			});
+			it.mut<Movement>()->velocity.y = -_level->player.jump_speed;
 		}
 	}
 
@@ -283,65 +286,55 @@ void GameScene::LifetimeSystem(GameManager* gm) {}
 // Make objects fall if subject to gravity
 // Components: Velocity*, Gravity
 void GameScene::GravitySystem(GameManager* gm) {
-	const Sensors* s;
-	const Movement* m;
-	std::tie(s, m) = _entity_manager.get<Sensors, Movement>(_player);
+	auto smq = _entity_manager.query<Sensors, Movement>();
+	auto it = smq.find(_player);
+
+	const Sensors* s = it.value<Sensors>();
+	const Movement* m = it.value<Movement>();
 
 	if (!s->bottom) {
 		if (m->velocity.y < _level->player.terminal_velocity) {
-			_entity_manager.update<Movement>(_player, [this](Movement* m) {
-				m->velocity.y = fmin(_level->player.terminal_velocity, m->velocity.y + _level->player.gravity);
-			});
+			it.mut<Movement>()->velocity.y = fmin(_level->player.terminal_velocity, m->velocity.y + _level->player.gravity);
 		}
 	}
 	else if (m->velocity.y > 0.0f) {
-		_entity_manager.update<Movement>(_player, [this](Movement* m) {
-			m->velocity.y = 0.0f;
-		});
+		it.mut<Movement>()->velocity.y = 0.0f;
 	}
 }
 // Move objects with velocity
 // Components: Velocity, Position*
 void GameScene::MovementSystem(GameManager* gm) {
-	//for (auto it : _entity_manager.query<AABB, Transform>()) {
-	//}
 	auto atq = _entity_manager.query<AABB, Transform>();
 	for (auto it = atq.begin(); it != atq.end(); ++it) {
-		_entity_manager.update<AABB, Transform>(it.entity(), [](AABB* aabb, Transform* t) {
-			aabb->previous_position = t->position;
-		});
+		AABB* aabb = it.mut<AABB>();
+		const Transform* t = it.value<Transform>();
+		aabb->previous_position = t->position;
 	}
 
-	//_entity_manager.forEach<AABB, Transform>([this](MattECS::EntityID entity, const AABB* a, const Transform* t) {
-	//	_entity_manager.update<AABB, Transform>(entity, [](AABB* aabb, Transform* t) {
-	//		aabb->previous_position = t->position;
-	//	});
-	//});
-
-	_entity_manager.forEach<Movement, Transform>([this](MattECS::EntityID entity, const Movement* m, const Transform* t) {
-		// Check for sensors only if they exist
-		const Sensors* s = _entity_manager.get<Sensors>(entity);
-
-		_entity_manager.update<AABB, Transform, Movement>(entity, [&s](AABB* aabb, Transform* t, Movement* m) {
-			if (s != nullptr) {
-				if (m->velocity.x > 0 && s->right) {
-					m->velocity.x = 0.0f;
-				}
-				if (m->velocity.x < 0 && s->left) {
-					m->velocity.x = 0.0f;
-				}
-				if (m->velocity.y > 0 && s->bottom) {
-					m->velocity.y = 0.0f;
-				}
-				if (m->velocity.y < 0 && s->top) {
-					m->velocity.y = 0.0f;
-				}
+	auto mtq = _entity_manager.query<Movement, Transform>();
+	for (auto it = mtq.begin(); it != mtq.end(); ++it) {
+		const Sensors* s = _entity_manager.get<Sensors>(it.entity());
+		if (s != nullptr) {
+			Movement* m = it.mut<Movement>();
+			if (m->velocity.x > 0 && s->right) {
+				m->velocity.x = 0.0f;
 			}
+			if (m->velocity.x < 0 && s->left) {
+				m->velocity.x = 0.0f;
+			}
+			if (m->velocity.y > 0 && s->bottom) {
+				m->velocity.y = 0.0f;
+			}
+			if (m->velocity.y < 0 && s->top) {
+				m->velocity.y = 0.0f;
+			}
+		}
 
-			t->position.x += m->velocity.x;
-			t->position.y += m->velocity.y;
-		});
-	});
+		const Movement* m = it.value<Movement>();
+		Transform* t = it.mut<Transform>();
+		t->position.x += m->velocity.x;
+		t->position.y += m->velocity.y;
+	}
 
 	const Transform* t = _entity_manager.get<Transform>(_player);
 	for (unsigned int i = _milestone_reached; i < _level->milestones.size(); i++) {
@@ -400,34 +393,31 @@ bool point_in_rect(sf::Vector2f p, AABB* aabb, Transform* t) {
 // Detects overlap of AABBs, but does not resolve. just stores results.
 // Components: AABB, Collision*
 void GameScene::DetectCollisionSystem(GameManager* gm) {
-	_entity_manager.forEach<AABB, Transform>([this](MattECS::EntityID e1, const AABB* aabb, const Transform* t) {
-		_entity_manager.update<AABB>(e1, [t](AABB* aabb) {
-			aabb->collision = false;
-			aabb->previous_velocity.x = t->position.x - aabb->previous_position.x;
-			aabb->previous_velocity.y = t->position.y - aabb->previous_position.y;
-			});
-	});
-	
-	// TODO: entities could be pushed inside of another moved entity... and boom
-
 	auto atq = _entity_manager.query<Transform, AABB>();
 	for (auto it = atq.begin(); it != atq.end(); ++it) {
-		MattECS::EntityID e1;
-		const AABB* aabb1;
-		const Transform* t1;
+		AABB* aabb = it.mut<AABB>();
+		const Transform* t = it.value<Transform>();
+		aabb->collision = false;
+		aabb->previous_velocity.x = t->position.x - aabb->previous_position.x;
+		aabb->previous_velocity.y = t->position.y - aabb->previous_position.y;
+	}
+
+	// TODO: entities could be pushed inside of another moved entity... and boom
+	for (auto it = atq.begin(); it != atq.end(); ++it) {
+		MattECS::EntityID e1 = it.entity();
+		const AABB* aabb1 = it.value<AABB>();
+		const Transform* t1 = it.value<Transform>();
 		MattECS::EntityID e2;
 		const AABB* aabb2;
 		const Transform* t2;
-
-		e1 = it.entity();
-		std::tie(t1, aabb1) = it.values();
 
 		for (auto it2 = atq.find(e1); it2 != atq.end(); ++it2) {
 			e2 = it2.entity();
 			if (e1 == e2) {
 				continue;
 			}
-			std::tie(t2, aabb2) = it2.values();
+			aabb2 = it2.value<AABB>();
+			t2 = it2.value<Transform>();
 
 			float too_far_away = aabb1->half_size.x + aabb2->half_size.x + 16.0f;
 			if (t2->position.x > t1->position.x + too_far_away) {
@@ -439,12 +429,8 @@ void GameScene::DetectCollisionSystem(GameManager* gm) {
 			std::tie(has_overlap, how_much) = overlap(aabb1->half_size, t1->position, aabb2->half_size, t2->position);
 
 			if (has_overlap) {
-				_entity_manager.update<AABB>(e1, [](AABB* aabb) {
-					aabb->collision = true;
-					});
-				_entity_manager.update<AABB>(e2, [](AABB* aabb) {
-					aabb->collision = true;
-					});
+				it.mut<AABB>()->collision = true;
+				it2.mut<AABB>()->collision = true;
 
 				const Movement* m1 = _entity_manager.get<Movement>(e1);
 				const Movement* m2 = _entity_manager.get<Movement>(e2);
@@ -542,16 +528,14 @@ void GameScene::DetectCollisionSystem(GameManager* gm) {
 
 					if (t >= 0.0 && t < 1.0f) {
 						if (is_dynamic1 && (vel_x_1 != 0.0f || vel_y_1 != 0.0)) {
-							_entity_manager.update<Transform>(e1, [&aabb1, vel_x_1, vel_y_1, t](Transform* tr) {
-								tr->position.x = aabb1->previous_position.x + vel_x_1 * t;
-								tr->position.y = aabb1->previous_position.y + vel_y_1 * t;
-								});
+							Transform* tr = it.mut<Transform>();
+							tr->position.x = aabb1->previous_position.x + vel_x_1 * t;
+							tr->position.y = aabb1->previous_position.y + vel_y_1 * t;
 						}
 						if (is_dynamic2 && (vel_x_2 != 0.0f || vel_y_2 != 0.0)) {
-							_entity_manager.update<Transform>(e2, [&aabb2, vel_x_2, vel_y_2, t](Transform* tr) {
-								tr->position.x = aabb2->previous_position.x + vel_x_2 * t;
-								tr->position.y = aabb2->previous_position.y + vel_y_2 * t;
-								});
+							Transform* tr = it2.mut<Transform>();
+							tr->position.x = aabb2->previous_position.x + vel_x_2 * t;
+							tr->position.y = aabb2->previous_position.y + vel_y_2 * t;
 						}
 					}
 				}
@@ -560,154 +544,13 @@ void GameScene::DetectCollisionSystem(GameManager* gm) {
 		}
 	}
 
+	auto staq = _entity_manager.query<Sensors, Transform, AABB>();
+	for (auto it = staq.begin(); it != staq.end(); ++it) {
+		auto e1 = it.entity();
+		const AABB* aabb1 = it.value<AABB>();
+		const Transform* t1 = it.value<Transform>();
+		Sensors* s = it.mut<Sensors>();
 
-	//_entity_manager.forEach<AABB, Transform>([this](MattECS::EntityID e1, const AABB* aabb1, const Transform* t1) {
-	//	//_entity_manager.forUntil<AABB, Transform>([this, &e1, &aabb1, &t1](MattECS::EntityID e2, const AABB* aabb2, const Transform* t2) -> bool {
-	//	// Transforms are sorted, so we can do this nonsense.
-	//	_entity_manager.forAround<Transform, AABB>(e1, [this, &e1, &aabb1, &t1](MattECS::EntityID e2, const Transform* t2, const AABB* aabb2) -> bool {
-	//		if (e1 == e2) {
-	//			// Can half the search space as continuing would only double compare E1<>E2.
-	//			// basically we ignore everything to the left since it's already scanned.
-	//			return false;
-	//		}
-
-	//		// if the 2nd is waaaay to far, then we just stop scanning.
-	//		// This does mean AABBs should be roughly the same size or +16 over the smallest...
-	//		// we don't bother with the if left condition, because we only ever scan to the right
-	//		float too_far_away = aabb1->half_size.x + aabb2->half_size.x + 16.0f;
-	//		if (t2->position.x > t1->position.x + too_far_away) {
-	//			return false;
-	//		}
-
-	//		bool has_overlap;
-	//		sf::Vector2f how_much;
-	//		std::tie(has_overlap, how_much) = overlap(aabb1->half_size, t1->position, aabb2->half_size, t2->position);
-
-	//		if (has_overlap) {
-	//			_entity_manager.update<AABB>(e1, [](AABB* aabb) {
-	//				aabb->collision = true;
-	//				});
-	//			_entity_manager.update<AABB>(e2, [](AABB* aabb) {
-	//				aabb->collision = true;
-	//				});
-
-	//			const Movement* m1 = _entity_manager.get<Movement>(e1);
-	//			const Movement* m2 = _entity_manager.get<Movement>(e2);
-	//			bool is_dynamic1 = m1 != nullptr;
-	//			bool is_dynamic2 = m2 != nullptr;
-	//			bool is_deadly1 = aabb1->damage > 0.0f;
-	//			bool is_deadly2 = aabb2->damage > 0.0f;
-	//			bool is_mortal1 = _entity_manager.get<Mortal>(e1) != nullptr;
-	//			bool is_mortal2 = _entity_manager.get<Mortal>(e2) != nullptr;
-
-	//			// lava instantly kills any mortal that touches it
-	//			// fireballs remove 1 hp from any mortal that touches it AND the fireball dies
-	//			// lavaball removes 1 hp from any mortal that touches it, but does not die itself
-	//			// between two mortals neither are player:
-	//			//   nothing happens
-	//			// between mortal and player
-	//			//   top = the one with y velocity > 0 (falling) OR the not-player
-	//			//   bottom = the one that is not the top
-	//			//   the bottom loses 1 hp
-	//			//   if the bottom dies, then the top keeps falling
-	//			//   else the top bounces up
-	//			// after all then, then resolve collisions
-	//			// the unit AI will handle turning etc
-
-	//			// if both deadly and both mortal, resolve who "dies"
-	//			// if 1 deadly and other is mortal
-
-	//			if (is_deadly1 && is_mortal2 && aabb1->piercing >= aabb2->hardness) {
-	//				_entity_manager.update<Mortal>(e2, [&aabb1](Mortal* m) {
-	//					m->health -= aabb1->damage;
-	//				});
-	//			}
-	//			if (is_deadly2 && is_mortal1 && aabb2->piercing >= aabb1->hardness) {
-	//				_entity_manager.update<Mortal>(e1, [&aabb2](Mortal* m) {
-	//					m->health -= aabb2->damage;
-	//				});
-	//			}
-
-	//			// if either is permeable, then we don't adjust positions.
-	//			if (aabb1->material == AABB::Material::Permeable || aabb2->material == AABB::Material::Permeable) {
-	//				return true;
-	//			}
-
-	//			if (is_dynamic1 || is_dynamic2) {
-	//				float vel_x_1 = is_dynamic1 ? (t1->position.x - aabb1->previous_position.x) : 0.0f;
-	//				float vel_y_1 = is_dynamic1 ? (t1->position.y - aabb1->previous_position.y) : 0.0f;
-	//				float vel_x_2 = is_dynamic2 ? (t2->position.x - aabb2->previous_position.x) : 0.0f;
-	//				float vel_y_2 = is_dynamic2 ? (t2->position.y - aabb2->previous_position.y) : 0.0f;
-
-	//				if (vel_x_1 == 0 && vel_y_1 == 0 && vel_x_2 == 0 && vel_y_2 == 0) {
-	//					return true;
-	//				}
-
-	//				// we want to find when the two entities are JUST overlapping.
-	//				// how much tells us how far to move them apart.
-	//				// it's also how much overlap there is
-
-	//				// halfsizes = abs(spos1.x + vel1.x * t - (spos2.x + vel2.x * t))
-	//				// the rest assume's spos1.x > spos2.x, just negate halfsizes if otherwise.
-	//				// halfsizes + spos2.x + vel2.x * t = spos1.x + vel1.x * t
-	//				// halfsizes + spos2.x + vel2.x * t - spos1.x = vel1.x * t
-	//				// halfsizes + spos2.x - spos1.x = vel1.x * t - vel2.x * t
-	//				// (halfsizes + spos2.x - spos1.x) / (vel1.x - vel2.x) = t
-	//				// if vel1.x == vel2.x, there is no solution. they're moving in the same direction.
-
-	//				float desired_x = aabb1->half_size.x + aabb2->half_size.x;
-	//				float desired_y = aabb1->half_size.y + aabb2->half_size.y;
-
-	//				if (aabb2->previous_position.x > aabb1->previous_position.x) {
-	//					desired_x = -desired_x;
-	//				}
-	//				if (aabb2->previous_position.y > aabb1->previous_position.y) {
-	//					desired_y = -desired_y;
-	//				}
-
-	//				float tx = 1.0f;
-	//				float ty = 1.0f;
-	//				if (how_much.x != 0.0f && (vel_x_1 != 0.0 || vel_x_2 != 0.0) && vel_x_1 != vel_x_2) {
-	//					float t = (desired_x + aabb2->previous_position.x - aabb1->previous_position.x) / (vel_x_1 - vel_x_2);
-	//					if (t >= 0.0f && t < 1.0f) {
-	//						tx = t;
-	//					}
-	//				}
-	//				if (how_much.y != 0.0f && (vel_y_1 != 0.0 || vel_y_2 != 0.0) && vel_y_1 != vel_y_2) {
-	//					float t = (desired_y + aabb2->previous_position.y - aabb1->previous_position.y) / (vel_y_1 - vel_y_2);
-	//					if (t >= 0.0f && t < 1.0f) {
-	//						ty = t;
-	//					}
-	//				}
-	//				// we use the smallest T to make sure both are satisifed.
-	//				// the smallest T will be the closest to the original position
-	//				// tx/ty will be 0 if it cannot be satisfied this frame, but we assume
-	//				// that the other will satisfy since the object JUST became overlapped.
-	//				auto t = fmin(tx, ty);
-
-	//				if (t >= 0.0 && t < 1.0f) {
-	//					if (is_dynamic1 && (vel_x_1 != 0.0f || vel_y_1 != 0.0)) {
-	//						_entity_manager.update<Transform>(e1, [&aabb1, vel_x_1, vel_y_1, t](Transform* tr) {
-	//							tr->position.x = aabb1->previous_position.x + vel_x_1 * t;
-	//							tr->position.y = aabb1->previous_position.y + vel_y_1 * t;
-	//							});
-	//					}
-	//					if (is_dynamic2 && (vel_x_2 != 0.0f || vel_y_2 != 0.0)) {
-	//						_entity_manager.update<Transform>(e2, [&aabb2, vel_x_2, vel_y_2, t](Transform* tr) {
-	//							tr->position.x = aabb2->previous_position.x + vel_x_2 * t;
-	//							tr->position.y = aabb2->previous_position.y + vel_y_2 * t;
-	//						});
-	//					}
-	//				}
-	//			}
-	//		}
-
-	//		return true;
-	//	});
-	//});
-
-	// now that all collisions have been resolved, set up the sensors
-	_entity_manager.forEach<Sensors, AABB, Transform>([this](MattECS::EntityID e1, const Sensors* s, const AABB* aabb1, const Transform* t1) {
 		const float sensor_dist = 1;
 
 		sf::Vector2f h_sensor_size = sf::Vector2f(sensor_dist, aabb1->half_size.y);
@@ -718,49 +561,42 @@ void GameScene::DetectCollisionSystem(GameManager* gm) {
 		sf::Vector2f top_sensor = sf::Vector2f(t1->position.x, t1->position.y - aabb1->half_size.y);
 		sf::Vector2f bottom_sensor = sf::Vector2f(t1->position.x, t1->position.y + aabb1->half_size.y);
 
-		_entity_manager.update<Sensors>(e1, [](Sensors* s) {
-			s->left = false;
-			s->right = false;
-			s->top = false;
-			s->bottom = false;
-			});
+		s->left = false;
+		s->right = false;
+		s->top = false;
+		s->bottom = false;
 
-		_entity_manager.forEach<AABB, Transform>([this, &e1, t1, h_sensor_size, w_sensor_size, left_sensor, right_sensor, top_sensor, bottom_sensor](MattECS::EntityID e2, const AABB* aabb2, const Transform* t2) {
+		for (auto it2 = atq.begin(); it2 != atq.end(); ++it2) {
+			auto e2 = it2.entity();
+			const AABB* aabb2 = it2.value<AABB>();
+			const Transform* t2 = it2.value<Transform>();
+
 			if (e1 == e2) {
-				return;
+				continue;
 			}
 
 			if (aabb2->material == AABB::Material::Permeable) {
-				return;
+				continue;
 			}
 
 			auto check = overlap(h_sensor_size, left_sensor, aabb2->half_size, t2->position);
 			if (std::get<0>(check)) {
-				_entity_manager.update<Sensors>(e1, [](Sensors* s) {
-					s->left = true;
-				});
+				s->left = true;
 			}
 			check = overlap(h_sensor_size, right_sensor, aabb2->half_size, t2->position);
 			if (std::get<0>(check)) {
-				_entity_manager.update<Sensors>(e1, [](Sensors* s) {
-					s->right = true;
-					});
+				s->right = true;
 			}
 			check = overlap(w_sensor_size, top_sensor, aabb2->half_size, t2->position);
 			if (std::get<0>(check)) {
-				_entity_manager.update<Sensors>(e1, [](Sensors* s) {
-					s->top = true;
-					});
+				s->top = true;
 			}
 			check = overlap(w_sensor_size, bottom_sensor, aabb2->half_size, t2->position);
 			if (std::get<0>(check)) {
-				_entity_manager.update<Sensors>(e1, [](Sensors* s) {
-					s->bottom = true;
-					});
+				s->bottom = true;
 			}
-		});
-	});
-
+		}
+	}
 }
 
 // Resolve overlapping AABBs by shifting moving objects.
@@ -770,26 +606,32 @@ void GameScene::ResolveCollisionSystem(GameManager* gm) {}
 // Components: Collision, FragmentSpawner
 // May spawn with: Velocity, Lifetime, Animation
 void GameScene::DestructionSystem(GameManager* gm) {
-	_entity_manager.forEach<Mortal>([this](MattECS::EntityID entity, const Mortal* m) {
-		if (m->health <= 0) {
-			if (entity == _player) {
+	bool respawn_player = false;
+	auto q = _entity_manager.query<Mortal>();
+	for (auto it = q.begin(); it != q.end(); ++it) {
+		if (it.value<Mortal>()->health <= 0) {
+			if (it.entity() == _player) {
 				// TODO: animation & respawn
-				_entity_manager.update<Movement, Transform, Mortal>(_player, [this](Movement* m, Transform* t, Mortal* h) {
-					h->health = PLAYER_STARTING_HEALTH;
-					m->velocity.x = 0.0f;
-					m->velocity.y = _level->player.jump_speed;
-					t->position.x = (float)(_level->milestones[_milestone_reached].x * _level->tile_width) + 8.0f;
-					t->position.y = (float)(_level->milestones[_milestone_reached].y * _level->tile_height) + 8.0f;
-					});
+				auto mtmq = _entity_manager.query<Movement, Transform>();
+				auto pit = mtmq.find(_player);
+
+				auto h = it.mut<Mortal>();
+				auto m = pit.mut<Movement>();
+				auto t = pit.mut<Transform>();
+
+				h->health = PLAYER_STARTING_HEALTH;
+				m->velocity.x = 0.0f;
+				m->velocity.y = _level->player.jump_speed;
+				t->position.x = (float)(_level->milestones[_milestone_reached].x * _level->tile_width) + 8.0f;
+				t->position.y = (float)(_level->milestones[_milestone_reached].y * _level->tile_height) + 8.0f;
 			}
 			else {
 				// TODO: fragment system or items spawner
 				// or animation for like goombas
-				_entity_manager.remove_all(entity);
+				_entity_manager.remove_all(it.entity());
 			}
 		}
-		
-		});
+	}
 }
 // Player dies when falling out of bounds or when touching an enemy
 // Components: Collision? or just Position
@@ -800,20 +642,17 @@ void GameScene::PlayerVictorySystem(GameManager* gm) {}
 
 // Set the player's correct sprite/animation sequence
 void GameScene::SetPlayerAnimationSystem(GameManager* gm) {
-	const Movement* m;
-	const Animation* ani;
-	std::tie(m, ani) = _entity_manager.get<Movement, Animation>(_player);
+	auto q = _entity_manager.query<Movement, Animation, Sprite, Transform>();
+	auto it = q.find(_player);
+
+	const Movement* m = it.value<Movement>();
+	const Animation* ani = it.value<Animation>();
 
 	if (m->velocity.x < 0) {
-		_entity_manager.update<Transform>(_player, [](Transform* t) {
-			t->scale = sf::Vector2f(-1.0f, 1.0f);
-		});
+		it.mut<Transform>()->scale = sf::Vector2f(-1.0f, 1.0f);
 	}
 	else if (m->velocity.x > 0) {
-		//coke->s.setOrigin(0.0f, 0.0f);
-		_entity_manager.update<Transform>(_player, [](Transform* t) {
-			t->scale = sf::Vector2f(1.0f, 1.0f);
-			});
+		it.mut<Transform>()->scale = sf::Vector2f(1.0f, 1.0f);
 	}
 
 	std::string change_animation = "";
@@ -832,40 +671,39 @@ void GameScene::SetPlayerAnimationSystem(GameManager* gm) {
 		auto& tex = std::get<sf::Texture&>(ani_info);
 		auto spconfig = std::get<SpriteAnimationConfig>(ani_info);
 
-		_entity_manager.update<Animation, Sprite>(_player, [&change_animation , &ani_info, &tex, &spconfig](Animation* ani, Sprite* s) {
-			s->t = &tex;
-			s->set_rect(sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h));
-			ani->config = spconfig;
-			ani->current_frame = 0;
-			ani->destroyAfter = false;
-			ani->loop = true;
-			ani->name = change_animation;
-			ani->next_animation = "";
-			});
+		Animation* ani = it.mut<Animation>();
+		Sprite* s = it.mut<Sprite>();
 
+		s->t = &tex;
+		s->set_rect(sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h));
+		ani->config = spconfig;
+		ani->current_frame = 0;
+		ani->destroyAfter = false;
+		ani->loop = true;
+		ani->name = change_animation;
+		ani->next_animation = "";
 	}
 }
 // Run the animations on objects and yes this is FixedUpdate, not render update.
 // Components: Animation*
 void GameScene::AnimationSystem(GameManager* gm) {
-	_entity_manager.forEach<Animation, Sprite>([this](MattECS::EntityID entity, const Animation* ani, const Sprite* s) {
-		if (ani->config.total_frames <= 1) {
-			return;
+	auto asq = _entity_manager.query<Animation, Sprite>();
+	for (auto it = asq.begin(); it != asq.end(); ++it) {
+		if (it.value<Animation>()->config.total_frames <= 1) {
+			continue;
 		}
-		_entity_manager.update<Animation, Sprite>(entity, [](Animation* ani, Sprite* s) {
-			// ok this is tick... whatever...
-			ani->current_frame++;
-			auto actual_frame = ani->current_frame / ani->config.frame_ticks;
-			if (actual_frame >= ani->config.total_frames) {
-				ani->current_frame = 0;
-				actual_frame = 0;
-			}
+		Animation* ani = it.mut<Animation>();
+		Sprite* s = it.mut<Sprite>();
+		ani->current_frame++;
+		auto actual_frame = ani->current_frame / ani->config.frame_ticks;
+		if (actual_frame >= ani->config.total_frames) {
+			ani->current_frame = 0;
+			actual_frame = 0;
+		}
 
-			int x = (actual_frame * (ani->config.w + 1)) + ani->config.x;
-			s->set_rect(sf::FloatRect((float)x, (float)ani->config.y, (float)ani->config.w, (float)ani->config.h));
-			// s->s.setTextureRect();
-			});
-	});
+		int x = (actual_frame * (ani->config.w + 1)) + ani->config.x;
+		s->set_rect(sf::FloatRect((float)x, (float)ani->config.y, (float)ani->config.w, (float)ani->config.h));
+	}
 }
 
 // Render all objects, but not the GUI
@@ -879,23 +717,26 @@ void GameScene::Render(GameManager* gm, sf::RenderWindow* window, int delta_ms) 
 		gm->SetCamera(_camera);
 	}
 
-	_entity_manager.forEach<Sprite, Transform>([&window](MattECS::EntityID entity, const Sprite* s, const Transform* t) {
-		s->render(window, t->transform());
-	});
+	auto stq = _entity_manager.query<Sprite, Transform>();
+	for (auto it = stq.begin(); it != stq.end(); ++it) {
+		it.value<Sprite>()->render(window, it.value<Transform>()->transform());
+	}
+
 	if (_render_colliders) {
-		_entity_manager.forEach<Transform, AABB>([this, &window](MattECS::EntityID entity, const Transform* t, const AABB* aabb) {
-			_entity_manager.update<AABB>(entity, [t](AABB* aabb) {
-				if (aabb->collision) {
-					aabb->render_box.setOutlineColor(sf::Color::Red);
-				}
-				else {
-					aabb->render_box.setOutlineColor(sf::Color::White);
-				}
-				aabb->render_box.setPosition(t->position.x, t->position.y);
-			});
+		auto atq = _entity_manager.query<AABB, Transform>();
+		for (auto it = atq.begin(); it != atq.end(); ++it) {
+			AABB* aabb = it.mut<AABB>();
+			const Transform* t = it.value<Transform>();
+			if (aabb->collision) {
+				aabb->render_box.setOutlineColor(sf::Color::Red);
+			}
+			else {
+				aabb->render_box.setOutlineColor(sf::Color::White);
+			}
+			aabb->render_box.setPosition(t->position.x, t->position.y);
 
 			window->draw(aabb->render_box);
-			});
+		}
 	}
 }
 // Render the GUI if any
