@@ -87,7 +87,6 @@
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="AssetManager.cpp" />
     <ClCompile Include="Assets.cpp" />
-    <ClCompile Include="BaseScene.cpp" />
     <ClCompile Include="ChunkedTileMap.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Game.cpp" />

@@ -31,20 +31,20 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 	}
 
-	sf::RenderWindow window(sf::VideoMode(config.window.width, config.window.height, 32), "Not Mario I swear");
-	//window.setFramerateLimit(config.window.framerate);
+	std::unique_ptr<sf::RenderWindow> window = std::make_unique<sf::RenderWindow>(sf::VideoMode(config.window.width, config.window.height, 32), "Not Mario I swear");
+	// window->setFramerateLimit(config.window.framerate);
 
 	Assets assets;
 	assets.Load("assets.txt");
-	AssetManager asset_manager(&assets);
+	std::unique_ptr<AssetManager> asset_manager = std::make_unique<AssetManager>(&assets);
 
 	Levels levels;
 	levels.Load("levels.txt");
 
-	GameManager game(&asset_manager, &window);
+	GameManager game(std::move(asset_manager), std::move(window));
 
 	MenuScene* menu = new MenuScene(&levels);
-	game.PushScene(menu);
+	game.PushScene(std::make_unique<MenuScene>(&levels));
 
 	// This is the main game loop that runs until quit.
 	game.RunLoop();

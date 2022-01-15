@@ -1,6 +1,7 @@
 #include "MenuScene.h"
 
 #include <functional>
+#include <memory>
 
 #include "GameScene.h"
 
@@ -75,7 +76,7 @@ void MenuScene::HandleInput(GameManager& gm, const std::vector<Action>& actions,
 			}
 			else {
 				auto level_name = _menu_items[_item_selected].getString();
-				gm.PushScene(new GameScene(_level_manager->GetLevel(level_name).value()));
+				gm.PushScene(std::make_unique<GameScene>(_level_manager->GetLevel(level_name).value()));
 			}
 			break;
 		case ActionType::MENU:

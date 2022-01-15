@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -14,14 +16,14 @@ class IScene;
 class GameManager
 {
 public:
-	GameManager(AssetManager* assets, sf::RenderWindow* window);
+	GameManager(std::unique_ptr<AssetManager> assets, std::unique_ptr<sf::RenderWindow> window);
 	~GameManager();
 
 	void Quit();
 
-	void PushScene(IScene* scene);
+	void PushScene(std::unique_ptr<IScene> scene);
 	void PopScene();
-	void ReplaceScene(IScene* scene);
+	void ReplaceScene(std::unique_ptr<IScene> scene);
 
 	void SetCamera(const sf::View& camera);
 	void SetActions(const std::unordered_map<sf::Keyboard::Key, ActionType>& action_map);
@@ -33,16 +35,16 @@ public:
 	AssetManager& asset_manager();
 
 private:
-	AssetManager* _asset_manager;
+	std::unique_ptr<AssetManager> _asset_manager;
 
 	bool _do_pop;
-	IScene* _to_push;
-	std::vector<IScene*> _scene_stack;
+	std::optional<std::unique_ptr<IScene>> _to_push;
+	std::vector<std::unique_ptr<IScene>> _scene_stack;
 
 	std::unordered_map<sf::Keyboard::Key, ActionType> _action_map;
 	std::unordered_map<ActionType, ActionState> _current_action_states;
 
-	sf::RenderWindow* _window;
+	std::unique_ptr<sf::RenderWindow> _window;
 
 	sf::Color _bg;
 };
