@@ -7,10 +7,10 @@
 Levels::Levels() {}
 Levels::~Levels() {}
 
-std::optional<TileMap> load_tilemap(std::string path) {
+std::optional<std::shared_ptr<TileMap>> load_tilemap(std::string path) {
 	std::ifstream file_stream(path);
 
-	TileMap tmap;
+	std::shared_ptr<TileMap> tmap = std::make_shared<TileMap>();
 	while (file_stream.good()) {
 		std::string cmd;
 		file_stream >> cmd;
@@ -19,16 +19,16 @@ std::optional<TileMap> load_tilemap(std::string path) {
 		}
 
 		if ("TileMap" == cmd) {
-			file_stream >> tmap.tile_width;
-			file_stream >> tmap.tile_height;
-			file_stream >> tmap.width;
-			file_stream >> tmap.height;
-			int total_tiles = tmap.width * tmap.height;
-			tmap.tilemap.reserve(total_tiles);
+			file_stream >> tmap->tile_width;
+			file_stream >> tmap->tile_height;
+			file_stream >> tmap->width;
+			file_stream >> tmap->height;
+			int total_tiles = tmap->width * tmap->height;
+			tmap->tilemap.reserve(total_tiles);
 			for (int i = 0; i < total_tiles; i++) {
 				unsigned int v;
 				file_stream >> v;
-				tmap.tilemap.push_back(v);
+				tmap->tilemap.push_back(v);
 			}
 		}
 		else if ("TileInfo" == cmd) {
@@ -37,22 +37,22 @@ std::optional<TileMap> load_tilemap(std::string path) {
 			file_stream >> info.aabb_width;
 			file_stream >> info.aabb_height;
 			file_stream >> info.z_index;
-			tmap.tile_types.push_back(info);
+			tmap->tile_types.push_back(info);
 		}
 		else if ("Player" == cmd) {
-			file_stream >> tmap.player.aabb_width;
-			file_stream >> tmap.player.aabb_height;
-			file_stream >> tmap.player.horizontal_speed;
-			file_stream >> tmap.player.jump_speed;
-			file_stream >> tmap.player.terminal_velocity;
-			file_stream >> tmap.player.gravity;
-			file_stream >> tmap.player.fire_animation;
+			file_stream >> tmap->player.aabb_width;
+			file_stream >> tmap->player.aabb_height;
+			file_stream >> tmap->player.horizontal_speed;
+			file_stream >> tmap->player.jump_speed;
+			file_stream >> tmap->player.terminal_velocity;
+			file_stream >> tmap->player.gravity;
+			file_stream >> tmap->player.fire_animation;
 		}
 		else if ("Milestone" == cmd) {
 			Milestone m;
 			file_stream >> m.x;
 			file_stream >> m.y;
-			tmap.milestones.push_back(m);
+			tmap->milestones.push_back(m);
 		}
 		else {
 			std::cerr << "Unknown command: " << cmd << "\n";
@@ -98,7 +98,7 @@ bool Levels::Load(std::string config) {
 	return true;
 }
 
-std::vector<std::string> Levels::GetLevelNames() {
+std::vector<std::string> Levels::GetLevelNames() const {
 	std::vector<std::string> l;
 	for (auto it : _levels) {
 		l.push_back(it.first);
@@ -106,10 +106,10 @@ std::vector<std::string> Levels::GetLevelNames() {
 	return l;
 }
 
-std::optional<TileMap*> Levels::GetLevel(std::string name) {
+std::optional<const std::shared_ptr<TileMap>> Levels::GetLevel(std::string name) const {
 	auto it = _levels.find(name);
 	if (it == _levels.end()) {
 		return {};
 	}
-	return &it->second;
+	return it->second;
 }

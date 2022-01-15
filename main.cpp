@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 	levels.Load("levels.txt");
 
 	GameManager game(std::move(asset_manager), std::move(window));
-	game.PushScene(std::make_unique<MenuScene>(&levels));
+	game.PushScene(std::make_unique<MenuScene>(levels));
 
 	// This is the main game loop that runs until quit.
 	game.RunLoop();

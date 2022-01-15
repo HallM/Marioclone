@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -10,7 +11,7 @@
 
 class GameScene : public BaseScene<GameScene> {
 public:
-	GameScene(TileMap* level);
+	GameScene(const std::shared_ptr<TileMap> level);
 	virtual ~GameScene();
 
 	// Loads the level and generates all the entities.
@@ -78,7 +79,7 @@ private:
 
 	// this is not an owned pointer, but referenced.
 	// expecting the Levels manager to own it.
-	TileMap* _level;
+	const std::shared_ptr<TileMap> _level;
 
 	sf::View _camera;
 	sf::View _gui_view;

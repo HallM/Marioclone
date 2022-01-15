@@ -41,7 +41,16 @@ const int ENTITY_HARDNESS = 0;
 // 
 
 
-GameScene::GameScene(TileMap* level) : _camera(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)), _gui_view(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)) {
+GameScene::GameScene(const std::shared_ptr<TileMap> level) :
+	_camera(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)),
+	_gui_view(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)),
+	_level(level),
+	_player(0),
+	_render_colliders(false),
+	_milestone_reached(0),
+	_fpsclock(),
+	_frames(0)
+{
 	entity_manager().register_component<Sprite>();
 	entity_manager().register_component<Animation>();
 	entity_manager().register_component<Transform>();
@@ -49,14 +58,6 @@ GameScene::GameScene(TileMap* level) : _camera(sf::FloatRect(0.f, 0.f, 256.0f, 2
 	entity_manager().register_component<AABB>();
 	entity_manager().register_component<Sensors>();
 	entity_manager().register_component<Mortal>();
-
-	_level = level;
-	// This will be initialized in Load.
-	_player = 0;
-	_render_colliders = false;
-	_milestone_reached = 0;
-	_fpsclock = sf::Clock();
-	_frames = 0;
 
 	min_screen_x = _camera.getSize().x / 2.0f;
 	max_screen_x = (float)(_level->width * _level->tile_width) - min_screen_x;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -54,9 +55,8 @@ public:
 
 	bool Load(std::string config);
 
-	std::optional<TileMap*> GetLevel(std::string name);
-
-	std::vector<std::string> GetLevelNames();
+	std::optional<const std::shared_ptr<TileMap>> GetLevel(std::string name) const;
+	std::vector<std::string> GetLevelNames() const;
 private:
-	std::unordered_map<std::string, TileMap> _levels;
+	std::unordered_map<std::string, std::shared_ptr<TileMap>> _levels;
 };

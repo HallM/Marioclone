@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include <SFML/Graphics.hpp>
@@ -12,7 +13,7 @@ class MenuScene;
 
 class MenuScene : public BaseScene<MenuScene> {
 public:
-	MenuScene(Levels* level_manager);
+	MenuScene(const Levels& level_manager);
 	virtual ~MenuScene();
 
 	virtual void Load(GameManager& gm);
@@ -22,7 +23,7 @@ public:
 	void RenderMenu(GameManager& gm, sf::RenderWindow& window, int last_update);
 
 private:
-	Levels* _level_manager;
+	const Levels& _level_manager;
 
 	unsigned int _item_selected;
 	std::vector<sf::Text> _menu_items;
