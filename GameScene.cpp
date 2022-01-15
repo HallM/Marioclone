@@ -81,7 +81,7 @@ GameScene::GameScene(const std::shared_ptr<TileMap> level) :
 
 GameScene::~GameScene() {}
 
-void GameScene::Load(GameManager& gm) {
+std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	AssetManager& asset_manager = gm.asset_manager();
 
 	auto font = asset_manager.GetFont("Roboto");
@@ -202,14 +202,16 @@ void GameScene::Load(GameManager& gm) {
 		}
 	}
 	entity_manager().finalize_update();
+	return {};
 }
 
-void GameScene::Unload(GameManager& gm) {
+std::optional<SceneError> GameScene::Unload(GameManager& gm) {
 	_player = 0;
 	gm.SetBackgroundColor(sf::Color::Black);
+	return {};
 }
 
-void GameScene::Show(GameManager& gm) {
+std::optional<SceneError> GameScene::Show(GameManager& gm) {
 	_fpsclock.restart();
 	gm.SetBackgroundColor(sf::Color(92, 148, 252));
 	gm.SetCamera(_camera);
@@ -230,6 +232,7 @@ void GameScene::Show(GameManager& gm) {
 	actions[sf::Keyboard::Key::G] = ActionType::GRID;
 	actions[sf::Keyboard::Key::Escape] = ActionType::MENU;
 	gm.SetActions(actions);
+	return {};
 }
 
 // Get user input and translate to movement on the player

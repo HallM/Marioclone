@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -15,9 +16,9 @@ public:
 	virtual ~GameScene();
 
 	// Loads the level and generates all the entities.
-	virtual void Load(GameManager& gm);
-	virtual void Unload(GameManager& gm);
-	virtual void Show(GameManager& gm);
+	virtual std::optional<SceneError> Load(GameManager& gm);
+	virtual std::optional<SceneError> Unload(GameManager& gm);
+	virtual std::optional<SceneError> Show(GameManager& gm);
 
 private:
 	// Get user input and translate to movement on the player

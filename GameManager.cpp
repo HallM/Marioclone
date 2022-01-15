@@ -61,8 +61,16 @@ void GameManager::RunLoop() {
 
 			_scene_stack.push_back(std::move(_to_push.value()));
 			IScene& scene = *_scene_stack.back();
-			scene.Load(*this);
-			scene.Show(*this);
+			auto maybe_error = scene.Load(*this);
+			if (maybe_error) {
+				std::cerr << maybe_error.value().description << "\n";
+				return;
+			}
+			maybe_error = scene.Show(*this);
+			if (maybe_error) {
+				std::cerr << maybe_error.value().description << "\n";
+				return;
+			}
 			_to_push = {};
 		}
 
@@ -123,8 +131,16 @@ void GameManager::RunLoop() {
 			_do_pop = false;
 			if (_scene_stack.size() > 0) {
 				IScene& s = *_scene_stack.back();
-				s.Hide(*this);
-				s.Unload(*this);
+				auto maybe_error = s.Hide(*this);
+				if (maybe_error) {
+					std::cerr << maybe_error.value().description << "\n";
+					return;
+				}
+				maybe_error = s.Unload(*this);
+				if (maybe_error) {
+					std::cerr << maybe_error.value().description << "\n";
+					return;
+				}
 				_scene_stack.pop_back();
 
 				SetCamera(_window->getDefaultView());

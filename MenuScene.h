@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <SFML/Graphics.hpp>
@@ -16,8 +17,8 @@ public:
 	MenuScene(const Levels& level_manager);
 	virtual ~MenuScene();
 
-	virtual void Load(GameManager& gm);
-	virtual void Show(GameManager& gm);
+	virtual std::optional<SceneError> Load(GameManager& gm);
+	virtual std::optional<SceneError> Show(GameManager& gm);
 
 	void HandleInput(GameManager& gm, const std::vector<Action>& actions, const std::unordered_map<ActionType, ActionState>& action_states);
 	void RenderMenu(GameManager& gm, sf::RenderWindow& window, int last_update);

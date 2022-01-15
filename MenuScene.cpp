@@ -12,7 +12,7 @@ MenuScene::MenuScene(const Levels& level_manager) : _level_manager(level_manager
 
 MenuScene::~MenuScene() {}
 
-void MenuScene::Load(GameManager& gm) {
+std::optional<SceneError> MenuScene::Load(GameManager& gm) {
 	gm.SetBackgroundColor(sf::Color::Black);
 
 	auto font = gm.asset_manager().GetFont("Roboto");
@@ -31,9 +31,10 @@ void MenuScene::Load(GameManager& gm) {
 	_title.setPosition(5.0f, 5.0f);
 	_selection_indicator = sf::Text(">", *font, 24);
 	_selection_indicator.setFillColor(sf::Color::White);
+	return {};
 }
 
-void MenuScene::Show(GameManager& gm) {
+std::optional<SceneError> MenuScene::Show(GameManager& gm) {
 	gm.SetBackgroundColor(sf::Color::Black);
 
 	std::unordered_map<sf::Keyboard::Key, ActionType> actions;
@@ -45,6 +46,7 @@ void MenuScene::Show(GameManager& gm) {
 	actions[sf::Keyboard::Key::Enter] = ActionType::SELECT;
 	actions[sf::Keyboard::Key::Escape] = ActionType::MENU;
 	gm.SetActions(actions);
+	return {};
 }
 
 void MenuScene::HandleInput(GameManager& gm, const std::vector<Action>& actions, const std::unordered_map<ActionType, ActionState>& action_states) {

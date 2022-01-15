@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -33,15 +34,21 @@
 //	SCENE_POST_RENDER,
 //};
 
+struct SceneError {
+	std::string description;
+	SceneError(std::string desc) : description(desc) {}
+};
+
 class IScene {
 public:
 	virtual ~IScene() = default;
 
 	// Life cycle methods
-	virtual void Load(GameManager& gm) = 0;
-	virtual void Unload(GameManager& gm) = 0;
-	virtual void Show(GameManager& gm) = 0;
-	virtual void Hide(GameManager& gm) = 0;
+	// These can all return errors that will cause the game to open an error box and exit.
+	virtual std::optional<SceneError> Load(GameManager& gm) = 0;
+	virtual std::optional<SceneError> Unload(GameManager& gm) = 0;
+	virtual std::optional<SceneError> Show(GameManager& gm) = 0;
+	virtual std::optional<SceneError> Hide(GameManager& gm) = 0;
 
 	// Game loop lifecycle
 	virtual void BeginLoop(GameManager& gm) = 0;
@@ -84,10 +91,10 @@ public:
 	virtual ~BaseScene();
 
 	// Life cycle methods
-	virtual void Load(GameManager& gm);
-	virtual void Unload(GameManager& gm);
-	virtual void Show(GameManager& gm);
-	virtual void Hide(GameManager& gm);
+	virtual std::optional<SceneError> Load(GameManager& gm);
+	virtual std::optional<SceneError> Unload(GameManager& gm);
+	virtual std::optional<SceneError> Show(GameManager& gm);
+	virtual std::optional<SceneError> Hide(GameManager& gm);
 
 	// Game loop lifecycle
 	void BeginLoop(GameManager& gm);
@@ -133,16 +140,24 @@ template <typename Derived>
 BaseScene<Derived>::~BaseScene() {}
 
 template <typename Derived>
-void BaseScene<Derived>::Load(GameManager& gm) {}
+std::optional<SceneError> BaseScene<Derived>::Load(GameManager& gm) {
+	return {};
+}
 
 template <typename Derived>
-void BaseScene<Derived>::Unload(GameManager& gm) {}
+std::optional<SceneError> BaseScene<Derived>::Unload(GameManager& gm) {
+	return {};
+}
 
 template <typename Derived>
-void BaseScene<Derived>::Show(GameManager& gm) {}
+std::optional<SceneError> BaseScene<Derived>::Show(GameManager& gm) {
+	return {};
+}
 
 template <typename Derived>
-void BaseScene<Derived>::Hide(GameManager& gm) {}
+std::optional<SceneError> BaseScene<Derived>::Hide(GameManager& gm) {
+	return {};
+}
 
 
 // System management methods
