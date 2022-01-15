@@ -1,0 +1,54 @@
+Player 32 160 12 16 1.5 3 3 0.1 MarSmStand
+
+Tile Rock 0 13
+Tile Rock 1 13
+Tile Rock 2 13
+Tile Rock 3 13
+Tile Rock 4 13
+Tile Rock 5 13
+Tile Rock 6 13
+Tile Rock 7 13
+Tile Rock 8 13
+Tile Rock 9 13
+Tile Rock 10 13
+Tile Rock 11 13
+Tile Rock 12 13
+Tile Rock 13 13
+Tile Rock 14 13
+Tile Rock 15 13
+
+Tile Rock 0 14
+Tile Rock 1 14
+Tile Rock 2 14
+Tile Rock 3 14
+Tile Rock 4 14
+Tile Rock 5 14
+Tile Rock 6 14
+Tile Rock 7 14
+Tile Rock 8 14
+Tile Rock 9 14
+Tile Rock 10 14
+Tile Rock 11 14
+Tile Rock 12 14
+Tile Rock 13 14
+Tile Rock 14 14
+Tile Rock 15 14
+
+Dec HillTop 2 10
+Dec HillL 1 11
+Dec HillDotL 2 11
+Dec HillR 3 11
+Dec HillL 0 12
+Dec HillDotL 1 12
+Dec Hill 2 12
+Dec HillDotR 3 12
+Dec HillR 4 12
+
+Dec Cloud11 8 3
+Dec Cloud12 9 3
+Dec Cloud13 10 3
+Dec Cloud21 8 4
+Dec Cloud22 9 4
+Dec Cloud23 10 4
+
+Tile QBlock 9 9
