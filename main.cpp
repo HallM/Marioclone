@@ -41,9 +41,9 @@ int main(int argc, char* argv[]) {
 	Levels levels;
 	levels.Load("levels.txt");
 
-	GameManager game(&window);
+	GameManager game(&asset_manager, &window);
 
-	MenuScene* menu = new MenuScene(&asset_manager, &levels);
+	MenuScene* menu = new MenuScene(&levels);
 	game.PushScene(menu);
 
 	// This is the main game loop that runs until quit.

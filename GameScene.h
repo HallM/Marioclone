@@ -5,74 +5,74 @@
 
 #include "Action.h"
 #include "BaseScene.h"
-#include "EntityManager.h"
+#include "Components.h"
 #include "Levels.h"
 
-class GameScene : public BaseScene {
+class GameScene : public BaseScene<GameScene> {
 public:
-	GameScene(AssetManager* asset_manager, TileMap* level);
-	~GameScene();
+	GameScene(TileMap* level);
+	virtual ~GameScene();
 
 	// Loads the level and generates all the entities.
-	virtual void Load(GameManager* gm);
-	virtual void Unload(GameManager* gm);
-	virtual void Show(GameManager* gm);
+	virtual void Load(GameManager& gm);
+	virtual void Unload(GameManager& gm);
+	virtual void Show(GameManager& gm);
 
 private:
 	// Get user input and translate to movement on the player
 	// Components: Velocity*, BulletSpawner
 	// May spawn with: Velocity, AABB, Lifetime, Animation
-	std::vector<Action> InputSystem(GameManager* gm, std::vector<Action> actions, const std::unordered_map<ActionType, ActionState>& action_states);
+	void InputSystem(GameManager& gm, const std::vector<Action>& actions, const std::unordered_map<ActionType, ActionState>& action_states);
 
 	// The following are part of the Fixed Update system.
 
 	// Determine how on-screen enemies should move
 	// Components: Velocity*
-	void AISystem(GameManager* gm);
+	void AISystem(GameManager& gm);
 
 	// Update objects with limited lifetime and destroy afterwards
 	// Components: Lifetime*
-	void LifetimeSystem(GameManager* gm);
+	void LifetimeSystem(GameManager& gm);
 	// Make objects fall if subject to gravity
 	// Components: Velocity*, Gravity
-	void GravitySystem(GameManager* gm);
+	void GravitySystem(GameManager& gm);
 	// Move objects with velocity
 	// Components: Velocity, Position*
-	void MovementSystem(GameManager* gm);
+	void MovementSystem(GameManager& gm);
 
 	// Detects overlap of AABBs, but does not resolve. just stores results.
 	// Components: AABB, Collision*
-	void DetectCollisionSystem(GameManager* gm);
+	void DetectCollisionSystem(GameManager& gm);
 
 	// Resolve overlapping AABBs by shifting moving objects.
 	// Components: Collision, Velocity*, Position*
-	void ResolveCollisionSystem(GameManager* gm);
+	void ResolveCollisionSystem(GameManager& gm);
 	// Destroy things that are destructable when hit by a collision in a specific manner
 	// Components: Collision, FragmentSpawner
 	// May spawn with: Velocity, Lifetime, Animation
-	void DestructionSystem(GameManager* gm);
+	void DestructionSystem(GameManager& gm);
 	// Player dies when falling out of bounds or when touching an enemy
 	// Components: Collision? or just Position
-	void PlayerDeathSystem(GameManager* gm);
+	void PlayerDeathSystem(GameManager& gm);
 	// Player wins if hitting the flag pole collider
 	// Components: Collision? or just Position
-	void PlayerVictorySystem(GameManager* gm);
+	void PlayerVictorySystem(GameManager& gm);
 
 	// Set the player's correct sprite/animation sequence
 	// Components: Animation*
-	void SetPlayerAnimationSystem(GameManager* gm);
+	void SetPlayerAnimationSystem(GameManager& gm);
 	// Run the animations on objects and yes this is FixedUpdate, not render update.
 	// Components: Animation*
-	void AnimationSystem(GameManager* gm);
+	void AnimationSystem(GameManager& gm);
 
 	// The following are part of the Render cycle.
 
 	// Render all objects, but not the GUI
 	// Components: Position, Animation
-	void Render(GameManager* gm, sf::RenderWindow* window, int delta_ms);
+	void Render(GameManager& gm, sf::RenderWindow& window, int delta_ms);
 	// Render the GUI if any
 	// Components: None, doesn't use entities I don't think.
-	void DrawGUI(GameManager* gm, sf::RenderWindow* window, int delta_ms);
+	void DrawGUI(GameManager& gm, sf::RenderWindow& window, int delta_ms);
 
 	MattECS::EntityID _player;
 

@@ -5,7 +5,8 @@
 
 const int MS_PER_TICK = 20;
 
-GameManager::GameManager(sf::RenderWindow* window) {
+GameManager::GameManager(AssetManager* assets, sf::RenderWindow* window) {
+	_asset_manager = assets;
 	_window = window;
 	_do_pop = false;
 	_to_push = nullptr;
@@ -23,7 +24,7 @@ void GameManager::Quit() {
 	_window->close();
 }
 
-void GameManager::PushScene(BaseScene* scene) {
+void GameManager::PushScene(IScene* scene) {
 	_to_push = scene;
 }
 
@@ -31,7 +32,7 @@ void GameManager::PopScene() {
 	_do_pop = true;
 }
 
-void GameManager::ReplaceScene(BaseScene* scene) {
+void GameManager::ReplaceScene(IScene* scene) {
 	PopScene();
 	PushScene(scene);
 }
@@ -61,19 +62,19 @@ void GameManager::RunLoop() {
 		if (_to_push != nullptr) {
 			if (_scene_stack.size() > 0) {
 				auto scene = _scene_stack.back();
-				scene->Hide(this);
+				scene->Hide(*this);
 			}
 
 			_scene_stack.push_back(_to_push);
-			_to_push->Load(this);
-			_to_push->Show(this);
+			_to_push->Load(*this);
+			_to_push->Show(*this);
 			_to_push = nullptr;
 		}
 
 		while (!_do_pop && _to_push == nullptr && _window->isOpen()) {
 			auto scene = _scene_stack.back();
 
-			scene->BeginLoop(this);
+			scene->BeginLoop(*this);
 
 			std::vector<Action> actions;
 			sf::Event event;
@@ -99,7 +100,7 @@ void GameManager::RunLoop() {
 					break;
 				}
 			}
-			scene->OnAction(this, actions, _current_action_states);
+			scene->OnAction(*this, actions, _current_action_states);
 
 			if (update_clock.getElapsedTime().asMilliseconds() >= MS_PER_TICK) {
 				sf::Time elapsed = update_clock.restart();
@@ -107,7 +108,7 @@ void GameManager::RunLoop() {
 
 				while (time_remain >= MS_PER_TICK) {
 					sf::Clock clk;
-					scene->FixedUpdate(this);
+					scene->FixedUpdate(*this);
 					auto el = clk.getElapsedTime().asMicroseconds();
 					std::cout << el << " us\n";
 					time_remain -= MS_PER_TICK;
@@ -116,20 +117,20 @@ void GameManager::RunLoop() {
 
 			sf::Time elapsed = render_clock.restart();
 			_window->clear(_bg);
-			scene->Render(this, _window, elapsed.asMilliseconds());
-			scene->RenderGUI(this, _window, elapsed.asMilliseconds());
+			scene->Render(*this, *_window, elapsed.asMilliseconds());
+			scene->RenderGUI(*this, *_window, elapsed.asMilliseconds());
 			_window->display();
 
-			scene->EndLoop(this);
+			scene->EndLoop(*this);
 		}
 
 		if (_do_pop) {
 			_do_pop = false;
 			if (_scene_stack.size() > 0) {
 				auto s = _scene_stack.back();
-				s->Hide(this);
+				s->Hide(*this);
 				_scene_stack.pop_back();
-				s->Unload(this);
+				s->Unload(*this);
 				delete s;
 
 				SetCamera(_window->getDefaultView());
@@ -139,4 +140,8 @@ void GameManager::RunLoop() {
 			}
 		}
 	}
+}
+
+AssetManager& GameManager::asset_manager() {
+	return *_asset_manager;
 }

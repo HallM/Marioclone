@@ -36,12 +36,12 @@ struct Sprite {
 		va[3].texCoords = sf::Vector2f(right, bottom);
 	}
 
-	void render(sf::RenderTarget* target, sf::Transform transform) const {
+	void render(sf::RenderTarget& target, sf::Transform transform) const {
 		auto originated_transform = transform.translate(origin);
 		sf::RenderStates state;
 		state.texture = t;
 		state.transform = transform;
-		target->draw(va, state);
+		target.draw(va, state);
 	}
 };
 

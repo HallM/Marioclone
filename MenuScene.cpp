@@ -4,12 +4,39 @@
 
 #include "GameScene.h"
 
-void MenuScene::Load(GameManager* gm) {
-	gm->SetBackgroundColor(sf::Color::Black);
+MenuScene::MenuScene(Levels* level_manager) {
+	_level_manager = level_manager;
+	_item_selected = 0;
+
+	RegisterActionSystem(&MenuScene::HandleInput);
+	RegisterRenderGUISystem(&MenuScene::RenderMenu);
 }
 
-void MenuScene::Show(GameManager* gm) {
-	gm->SetBackgroundColor(sf::Color::Black);
+MenuScene::~MenuScene() {}
+
+void MenuScene::Load(GameManager& gm) {
+	gm.SetBackgroundColor(sf::Color::Black);
+
+	auto font = gm.asset_manager().GetFont("Roboto");
+
+	for (auto level_name : _level_manager->GetLevelNames()) {
+		sf::Text t(level_name, *font, 24);
+		t.setFillColor(sf::Color::White);
+		_menu_items.push_back(t);
+	}
+
+	sf::Text quit_text("Exit to Desktop", *font, 24);
+	_menu_items.push_back(quit_text);
+
+	_title = sf::Text("Totally Not Mario", *font, 48);
+	_title.setFillColor(sf::Color::White);
+	_title.setPosition(5.0f, 5.0f);
+	_selection_indicator = sf::Text(">", *font, 24);
+	_selection_indicator.setFillColor(sf::Color::White);
+}
+
+void MenuScene::Show(GameManager& gm) {
+	gm.SetBackgroundColor(sf::Color::Black);
 
 	std::unordered_map<sf::Keyboard::Key, ActionType> actions;
 	actions[sf::Keyboard::Key::Up] = ActionType::UP;
@@ -19,10 +46,10 @@ void MenuScene::Show(GameManager* gm) {
 	actions[sf::Keyboard::Key::Space] = ActionType::SELECT;
 	actions[sf::Keyboard::Key::Enter] = ActionType::SELECT;
 	actions[sf::Keyboard::Key::Escape] = ActionType::MENU;
-	gm->SetActions(actions);
+	gm.SetActions(actions);
 }
 
-std::vector<Action> MenuScene::HandleInput(GameManager* gm, std::vector<Action> actions, const std::unordered_map<ActionType, ActionState>& action_states) {
+void MenuScene::HandleInput(GameManager& gm, const std::vector<Action>& actions, const std::unordered_map<ActionType, ActionState>& action_states) {
 	unsigned int total_menu = _menu_items.size();
 	bool can_go_up = _item_selected > 0;
 	bool can_go_down = _item_selected < (total_menu - 1);
@@ -44,24 +71,21 @@ std::vector<Action> MenuScene::HandleInput(GameManager* gm, std::vector<Action> 
 			break;
 		case ActionType::SELECT:
 			if (_item_selected == (total_menu - 1)) {
-				gm->Quit();
+				gm.Quit();
 			}
 			else {
 				auto level_name = _menu_items[_item_selected].getString();
-				gm->PushScene(new GameScene(_asset_manager, _level_manager->GetLevel(level_name).value()));
+				gm.PushScene(new GameScene(_level_manager->GetLevel(level_name).value()));
 			}
 			break;
 		case ActionType::MENU:
-			gm->Quit();
+			gm.Quit();
 			break;
 		}
 	}
-
-	// This method handles all actions.
-	return {};
 }
 
-void MenuScene::RenderMenu(GameManager* gm, sf::RenderWindow* window, int last_update) {
+void MenuScene::RenderMenu(GameManager& gm, sf::RenderWindow& window, int last_update) {
 	float x = 100.0f;
 	float y = 100.0f;
 
@@ -69,7 +93,7 @@ void MenuScene::RenderMenu(GameManager* gm, sf::RenderWindow* window, int last_u
 
 	for (auto menu_item : _menu_items) {
 		menu_item.setPosition(x, y);
-		window->draw(menu_item);
+		window.draw(menu_item);
 
 		if (i == _item_selected) {
 			menu_item.setStyle(sf::Text::Bold);
@@ -84,31 +108,6 @@ void MenuScene::RenderMenu(GameManager* gm, sf::RenderWindow* window, int last_u
 		i++;
 	}
 
-	window->draw(_title);
-	window->draw(_selection_indicator);
-}
-
-MenuScene::MenuScene(AssetManager* asset_manager, Levels* level_manager) : BaseScene(asset_manager) {
-	_level_manager = level_manager;
-	_item_selected = 0;
-
-	RegisterActionSystem(std::bind_front(&MenuScene::HandleInput, this));
-	RegisterRenderGUISystem(std::bind_front(&MenuScene::RenderMenu, this));
-
-	auto font = asset_manager->GetFont("Roboto");
-
-	for (auto level_name : level_manager->GetLevelNames()) {
-		sf::Text t(level_name, *font, 24);
-		t.setFillColor(sf::Color::White);
-		_menu_items.push_back(t);
-	}
-
-	sf::Text quit_text("Exit to Desktop", *font, 24);
-	_menu_items.push_back(quit_text);
-
-	_title = sf::Text("Totally Not Mario", *font, 48);
-	_title.setFillColor(sf::Color::White);
-	_title.setPosition(5.0f, 5.0f);
-	_selection_indicator = sf::Text(">", *font, 24);
-	_selection_indicator.setFillColor(sf::Color::White);
+	window.draw(_title);
+	window.draw(_selection_indicator);
 }
