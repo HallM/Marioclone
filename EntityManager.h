@@ -45,7 +45,7 @@ namespace MattECS {
 			}
 		};
 
-		ComponentManager() : _should_sort(false), _changed(false) {}
+		ComponentManager() : _has_sorter(false), _changed(false), _has_on_change(false) {}
 		virtual ~ComponentManager() {}
 
 		iterator begin() { return iterator(this, 0); }
@@ -91,14 +91,19 @@ namespace MattECS {
 			}
 		}
 
-		void set_changed() {
+		void set_changed(size_t index) {
 			_changed = true;
+			_dirty[index] = true;
 		}
 
-		void add_sorter(std::function<bool(const C&, const C&)> less) {
+		void set_sorter(std::function<bool(const C&, const C&)> less) {
 			_less = less;
-			_should_sort = true;
+			_has_sorter = true;
 			_changed = true;
+		}
+		void set_on_change(std::function<void(EntityID, const C&)> on_change) {
+			_has_on_change = true;
+			_on_change = on_change;
 		}
 
 		virtual void update_all() {
@@ -107,8 +112,10 @@ namespace MattECS {
 				unsigned int last = _ids.size() - 1;
 				std::swap(_ids[index], _ids[last]);
 				std::swap(_values[index], _values[last]);
+				_dirty[index] = _dirty[last];
 				_ids.pop_back();
 				_values.pop_back();
+				_dirty.pop_back();
 				_id_to_index.erase(id);
 			}
 			_deleted_items.clear();
@@ -118,14 +125,23 @@ namespace MattECS {
 				auto id = item.first;
 				_ids.push_back(id);
 				_values.push_back(item.second);
+				_dirty.push_back(true);
 				_id_to_index[id] = index;
 			}
 			_new_items.clear();
 
-			if (_should_sort && _changed) {
-				_sort();
+			if (_changed) {
+				if (_has_on_change) {
+					for (size_t i = 0; i < _dirty.size(); i++) {
+						_dirty[i] = false;
+						_on_change(_ids[i], _values[i]);
+					}
+				}
+				if (_has_sorter) {
+					_sort();
+				}
+				_changed = false;
 			}
-			_changed = false;
 		}
 
 	private:
@@ -166,10 +182,15 @@ namespace MattECS {
 			}
 		}
 
-		bool _should_sort;
+		bool _has_sorter;
 		std::function<bool(const C&, const C&)> _less;
 
+		// _changed is set if any are dirty
 		bool _changed;
+		// track which elements changed or at least what mut()s were called.
+		std::vector<bool> _dirty;
+		bool _has_on_change;
+		std::function<void(EntityID, const C&)> _on_change;
 
 		std::unordered_map<EntityID, unsigned int> _id_to_index;
 		std::vector<EntityID> _ids;
@@ -219,8 +240,8 @@ namespace MattECS {
 
 				template <typename C>
 				C& mut() {
-					std::get<ComponentManager<C>*>(_cmanagers)->set_changed();
 					auto index = _indices[_cindex<C, CFirst, COthers...>()].value();
+					std::get<ComponentManager<C>*>(_cmanagers)->set_changed(index);
 					return std::get<ComponentManager<C>*>(_cmanagers)->at(index);
 				}
 			private:
@@ -337,7 +358,13 @@ namespace MattECS {
 		template <typename C>
 		void sort(std::function<bool(const C&, const C&)> less) {
 			auto c = _manager<C>();
-			c->add_sorter(less);
+			c->set_sorter(less);
+		}
+
+		template <typename C>
+		void on_change(std::function<void(EntityID, const C&)> handler) {
+			auto c = _manager<C>();
+			c->set_on_change(handler);
 		}
 
 		template <typename C>
