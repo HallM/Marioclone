@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "timsort.hpp"
+
 namespace MattECS {
 	typedef size_t EntityID;
 
@@ -128,48 +130,38 @@ namespace MattECS {
 
 	private:
 		void _sort() {
-			// TODO: figure out a sort that doesnt require a copy of _values
-			std::vector<EntityID> copy_ids(_ids);
-			std::vector<C> copy_values(_values);
-			_merge_sort(copy_ids, copy_values, _ids.size());
+			std::vector<size_t> indices(_ids.size());
+			for (size_t i = 0; i < _ids.size(); i++) {
+				indices[i] = i;
+			}
+			gfx::timsort(
+				indices,
+				_less,
+				[this](size_t a) -> const C& {
+					return _values[a];
+				}
+			);
+			_apply_sort<EntityID>(_ids, indices);
+			_apply_sort<C>(_values, indices);
+
 			for (unsigned int i = 0; i < _ids.size(); i++) {
 				_id_to_index[_ids[i]] = i;
 			}
 		}
 
-		void _merge_sort(std::vector<EntityID>& copy_ids, std::vector<C>& copy_values, unsigned int len) {
-			for (unsigned int w = 1; w < len; w = 2 * w) {
-				for (unsigned int i = 0; i < len; i = i + 2 * w) {
-					unsigned int right = i + w;
-					if (len < right) {
-						right = len;
-					}
-					unsigned int end = i + 2 * w;
-					if (len < end) {
-						end = len;
-					}
-					_merge(copy_ids, copy_values, i, right, end);
-				}
-				for (unsigned int i = 0; i < len; i++) {
-					_ids[i] = copy_ids[i];
-					_values[i] = copy_values[i];
-				}
-			}
-		}
-
-		void _merge(std::vector<EntityID>& copy_ids, std::vector<C>& copy_values, unsigned int left, unsigned int right, unsigned int end) {
-			unsigned int i = left;
-			unsigned int j = right;
-			for (unsigned int k = left; k < end; k++) {
-				if (i < right && (j >= end || _less(_values[i], _values[j]))) {
-					copy_values[k] = _values[i];
-					copy_ids[k] = _ids[i];
-					i++;
-				}
-				else {
-					copy_values[k] = _values[j];
-					copy_ids[k] = _ids[j];
-					j++;
+		template <typename V>
+		void _apply_sort(std::vector<V>& tosort, const std::vector<size_t>& indices) {
+			std::vector<bool> sorted(tosort.size());
+			for (size_t i = 0; i < tosort.size(); i++) {
+				if (sorted[i]) { continue; }
+				sorted[i] = true;
+				size_t prev = i;
+				size_t j = indices[prev];
+				while (i != j) {
+					std::swap(tosort[prev], tosort[j]);
+					sorted[j] = true;
+					prev = j;
+					j = indices[prev];
 				}
 			}
 		}
@@ -314,6 +306,11 @@ namespace MattECS {
 		EntityManager() {
 			_last_id = 0;
 		}
+		~EntityManager() {
+			for (auto& it : _idautomanagers) {
+				delete it.second;
+			}
+		}
 
 		template <typename CFirst, typename... COthers>
 		Querier<CFirst, COthers...> query() {
@@ -323,12 +320,6 @@ namespace MattECS {
 					_manager<COthers>()...
 				)
 			);
-		}
-
-		~EntityManager() {
-			for (auto& it : _idautomanagers) {
-				delete it.second;
-			}
 		}
 
 		template <typename C>
