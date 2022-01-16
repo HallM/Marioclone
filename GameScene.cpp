@@ -242,25 +242,25 @@ void GameScene::InputSystem(GameManager& gm, const std::vector<Action>& actions,
 	auto smq = entity_manager().query<Sensors, Movement>();
 	auto it = smq.find(_player);
 
-	const Sensors* s = it.value<Sensors>();
+	const Sensors& s = it.value<Sensors>();
 
 	if (action_states.find(ActionType::LEFT)->second == ActionState::START) {
-		if (!s->left) {
-			it.mut<Movement>()->velocity.x = -_level->player.horizontal_speed;
+		if (!s.left) {
+			it.mut<Movement>().velocity.x = -_level->player.horizontal_speed;
 		}
 	}
 	else if (action_states.find(ActionType::RIGHT)->second == ActionState::START) {
-		if (!s->right) {
-			it.mut<Movement>()->velocity.x = _level->player.horizontal_speed;
+		if (!s.right) {
+			it.mut<Movement>().velocity.x = _level->player.horizontal_speed;
 		}
 	}
 	else {
-		it.mut<Movement>()->velocity.x = 0;
+		it.mut<Movement>().velocity.x = 0;
 	}
 
 	if (action_states.find(ActionType::JUMP)->second == ActionState::START) {
-		if (!s->top && s->bottom) {
-			it.mut<Movement>()->velocity.y = -_level->player.jump_speed;
+		if (!s.top && s.bottom) {
+			it.mut<Movement>().velocity.y = -_level->player.jump_speed;
 		}
 	}
 
@@ -296,16 +296,16 @@ void GameScene::GravitySystem(GameManager& gm) {
 	auto smq = entity_manager().query<Sensors, Movement>();
 	auto it = smq.find(_player);
 
-	const Sensors* s = it.value<Sensors>();
-	const Movement* m = it.value<Movement>();
+	const Sensors& s = it.value<Sensors>();
+	const Movement& m = it.value<Movement>();
 
-	if (!s->bottom) {
-		if (m->velocity.y < _level->player.terminal_velocity) {
-			it.mut<Movement>()->velocity.y = fmin(_level->player.terminal_velocity, m->velocity.y + _level->player.gravity);
+	if (!s.bottom) {
+		if (m.velocity.y < _level->player.terminal_velocity) {
+			it.mut<Movement>().velocity.y = fmin(_level->player.terminal_velocity, m.velocity.y + _level->player.gravity);
 		}
 	}
-	else if (m->velocity.y > 0.0f) {
-		it.mut<Movement>()->velocity.y = 0.0f;
+	else if (m.velocity.y > 0.0f) {
+		it.mut<Movement>().velocity.y = 0.0f;
 	}
 }
 // Move objects with velocity
@@ -313,40 +313,40 @@ void GameScene::GravitySystem(GameManager& gm) {
 void GameScene::MovementSystem(GameManager& gm) {
 	auto atq = entity_manager().query<AABB, Transform>();
 	for (auto it = atq.begin(); it != atq.end(); ++it) {
-		AABB* aabb = it.mut<AABB>();
-		const Transform* t = it.value<Transform>();
-		aabb->previous_position = t->position;
+		AABB& aabb = it.mut<AABB>();
+		const Transform& t = it.value<Transform>();
+		aabb.previous_position = t.position;
 	}
 
-	auto mtq = entity_manager().query<Movement, Transform>();
-	for (auto it = mtq.begin(); it != mtq.end(); ++it) {
-		const Sensors* s = entity_manager().get<Sensors>(it.entity());
-		if (s != nullptr) {
-			Movement* m = it.mut<Movement>();
-			if (m->velocity.x > 0 && s->right) {
-				m->velocity.x = 0.0f;
+	auto mtsq = entity_manager().query<Movement, Transform, Sensors>().optional<Sensors>();
+	for (auto it = mtsq.begin(); it != mtsq.end(); ++it) {
+		if (it.has<Sensors>()) {
+			const Sensors& s = it.value<Sensors>();
+			Movement& m = it.mut<Movement>();
+			if (m.velocity.x > 0 && s.right) {
+				m.velocity.x = 0.0f;
 			}
-			if (m->velocity.x < 0 && s->left) {
-				m->velocity.x = 0.0f;
+			if (m.velocity.x < 0 && s.left) {
+				m.velocity.x = 0.0f;
 			}
-			if (m->velocity.y > 0 && s->bottom) {
-				m->velocity.y = 0.0f;
+			if (m.velocity.y > 0 && s.bottom) {
+				m.velocity.y = 0.0f;
 			}
-			if (m->velocity.y < 0 && s->top) {
-				m->velocity.y = 0.0f;
+			if (m.velocity.y < 0 && s.top) {
+				m.velocity.y = 0.0f;
 			}
 		}
 
-		const Movement* m = it.value<Movement>();
-		Transform* t = it.mut<Transform>();
-		t->position.x += m->velocity.x;
-		t->position.y += m->velocity.y;
+		const Movement& m = it.value<Movement>();
+		Transform& t = it.mut<Transform>();
+		t.position.x += m.velocity.x;
+		t.position.y += m.velocity.y;
 	}
 
-	const Transform* t = entity_manager().get<Transform>(_player);
+	const Transform& t = entity_manager().get<Transform>(_player);
 	for (unsigned int i = _milestone_reached; i < _level->milestones.size(); i++) {
 		float mx = (float)(_level->milestones[i].x * _level->tile_width);
-		if (t->position.x > mx) {
+		if (t.position.x > mx) {
 			_milestone_reached = i;
 		}
 		else {
@@ -385,18 +385,6 @@ std::tuple<bool, sf::Vector2f> overlap(
 	return std::make_tuple(true, sf::Vector2f(overlap_x, overlap_y));
 }
 
-bool point_in_rect(sf::Vector2f p, AABB* aabb, Transform* t) {
-	float left = t->position.x - aabb->half_size.x;
-	float right = t->position.x + aabb->half_size.x;
-	float top = t->position.y - aabb->half_size.y;
-	float bottom = t->position.y + aabb->half_size.y;
-
-	if (p.x >= left && p.x <= right && p.y >= top && p.y <= bottom) {
-		return true;
-	}
-	return false;
-}
-
 // Detects overlap of AABBs, but does not resolve. just stores results.
 // Components: AABB, Collision*
 void GameScene::DetectCollisionSystem(GameManager& gm) {
@@ -404,11 +392,11 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 	auto atq_end = atq.end();
 
 	for (auto it = atq.begin(); it != atq_end; ++it) {
-		AABB* aabb = it.mut<AABB>();
-		const Transform* t = it.value<Transform>();
-		aabb->collision = false;
-		aabb->previous_velocity.x = t->position.x - aabb->previous_position.x;
-		aabb->previous_velocity.y = t->position.y - aabb->previous_position.y;
+		AABB& aabb = it.mut<AABB>();
+		const Transform& t = it.value<Transform>();
+		aabb.collision = false;
+		aabb.previous_velocity.x = t.position.x - aabb.previous_position.x;
+		aabb.previous_velocity.y = t.position.y - aabb.previous_position.y;
 	}
 
 	// TODO: entities could be pushed inside of another moved entity... and boom
@@ -416,53 +404,39 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 	auto mmq = entity_manager().query<Mortal, Movement>().optional<Mortal>().optional<Movement>();
 	for (auto it = atq.begin(); it != atq_end; ++it) {
 		MattECS::EntityID e1 = it.entity();
-		const AABB* aabb1 = it.value<AABB>();
-		const Transform* t1 = it.value<Transform>();
-		const Movement* m1;
-		bool is_dynamic1;
-		bool is_deadly1;
-		bool is_mortal1;
-
-		MattECS::EntityID e2;
-		const AABB* aabb2;
-		const Transform* t2;
-		const Movement* m2;
-		bool is_dynamic2;
-		bool is_deadly2;
-		bool is_mortal2;
+		const AABB& aabb1 = it.value<AABB>();
+		const Transform& t1 = it.value<Transform>();
 
 		for (auto it2 = atq.find(e1); it2 != atq_end; ++it2) {
-			e2 = it2.entity();
+			MattECS::EntityID e2 = it2.entity();
 			if (e1 == e2) {
 				continue;
 			}
-			aabb2 = it2.value<AABB>();
-			t2 = it2.value<Transform>();
+			const AABB& aabb2 = it2.value<AABB>();
+			const Transform& t2 = it2.value<Transform>();
 
-			float too_far_away = aabb1->half_size.x + aabb2->half_size.x + 16.0f;
-			if (t2->position.x > t1->position.x + too_far_away) {
+			float too_far_away = aabb1.half_size.x + aabb2.half_size.x + 16.0f;
+			if (t2.position.x > t1.position.x + too_far_away) {
 				break;
 			}
 
 			bool has_overlap;
 			sf::Vector2f how_much;
-			std::tie(has_overlap, how_much) = overlap(aabb1->half_size, t1->position, aabb2->half_size, t2->position);
+			std::tie(has_overlap, how_much) = overlap(aabb1.half_size, t1.position, aabb2.half_size, t2.position);
 
 			if (has_overlap) {
-				it.mut<AABB>()->collision = true;
-				it2.mut<AABB>()->collision = true;
+				it.mut<AABB>().collision = true;
+				it2.mut<AABB>().collision = true;
 
 				auto mmit1 = mmq.find(e1);
-				m1 = mmit1.value<Movement>();
-				is_dynamic1 = m1 != nullptr;
-				is_deadly1 = aabb1->damage > 0.0f;
-				is_mortal1 = mmit1.value<Mortal>() != nullptr;
+				bool is_dynamic1 = mmit1.has<Movement>();
+				bool is_deadly1 = aabb1.damage > 0.0f;
+				bool is_mortal1 = mmit1.has<Mortal>();
 
 				auto mmit2 = mmq.find(e2);
-				m2 = mmit2.value<Movement>();
-				is_dynamic2 = m2 != nullptr;
-				is_deadly2 = aabb2->damage > 0.0f;
-				is_mortal2 = mmit2.value<Mortal>() != nullptr;
+				bool is_dynamic2 = mmit2.has<Movement>();
+				bool is_deadly2 = aabb2.damage > 0.0f;
+				bool is_mortal2 = mmit2.has<Mortal>();
 
 				// lava instantly kills any mortal that touches it
 				// fireballs remove 1 hp from any mortal that touches it AND the fireball dies
@@ -481,25 +455,23 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 				// if both deadly and both mortal, resolve who "dies"
 				// if 1 deadly and other is mortal
 
-				if (is_deadly1 && is_mortal2 && aabb1->piercing >= aabb2->hardness) {
-					mmit2.mut<Mortal>()->health -= aabb1->damage;
-					//entity_manager().update<Mortal>(e2, [&aabb1](Mortal* h) { h->health -= aabb1->damage; });
+				if (is_deadly1 && is_mortal2 && aabb1.piercing >= aabb2.hardness) {
+					mmit2.mut<Mortal>().health -= aabb1.damage;
 				}
-				if (is_deadly2 && is_mortal1 && aabb2->piercing >= aabb1->hardness) {
-					mmit1.mut<Mortal>()->health -= aabb2->damage;
-					//entity_manager().update<Mortal>(e1, [&aabb2](Mortal* h) { h->health -= aabb2->damage; });
+				if (is_deadly2 && is_mortal1 && aabb2.piercing >= aabb1.hardness) {
+					mmit1.mut<Mortal>().health -= aabb2.damage;
 				}
 
 				// if either is permeable, then we don't adjust positions.
-				if (aabb1->material == AABB::Material::Permeable || aabb2->material == AABB::Material::Permeable) {
+				if (aabb1.material == AABB::Material::Permeable || aabb2.material == AABB::Material::Permeable) {
 					continue;
 				}
 
 				if (is_dynamic1 || is_dynamic2) {
-					float vel_x_1 = is_dynamic1 ? (t1->position.x - aabb1->previous_position.x) : 0.0f;
-					float vel_y_1 = is_dynamic1 ? (t1->position.y - aabb1->previous_position.y) : 0.0f;
-					float vel_x_2 = is_dynamic2 ? (t2->position.x - aabb2->previous_position.x) : 0.0f;
-					float vel_y_2 = is_dynamic2 ? (t2->position.y - aabb2->previous_position.y) : 0.0f;
+					float vel_x_1 = is_dynamic1 ? (t1.position.x - aabb1.previous_position.x) : 0.0f;
+					float vel_y_1 = is_dynamic1 ? (t1.position.y - aabb1.previous_position.y) : 0.0f;
+					float vel_x_2 = is_dynamic2 ? (t2.position.x - aabb2.previous_position.x) : 0.0f;
+					float vel_y_2 = is_dynamic2 ? (t2.position.y - aabb2.previous_position.y) : 0.0f;
 
 					if (vel_x_1 == 0 && vel_y_1 == 0 && vel_x_2 == 0 && vel_y_2 == 0) {
 						continue;
@@ -517,26 +489,26 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 					// (halfsizes + spos2.x - spos1.x) / (vel1.x - vel2.x) = t
 					// if vel1.x == vel2.x, there is no solution. they're moving in the same direction.
 
-					float desired_x = aabb1->half_size.x + aabb2->half_size.x;
-					float desired_y = aabb1->half_size.y + aabb2->half_size.y;
+					float desired_x = aabb1.half_size.x + aabb2.half_size.x;
+					float desired_y = aabb1.half_size.y + aabb2.half_size.y;
 
-					if (aabb2->previous_position.x > aabb1->previous_position.x) {
+					if (aabb2.previous_position.x > aabb1.previous_position.x) {
 						desired_x = -desired_x;
 					}
-					if (aabb2->previous_position.y > aabb1->previous_position.y) {
+					if (aabb2.previous_position.y > aabb1.previous_position.y) {
 						desired_y = -desired_y;
 					}
 
 					float tx = 1.0f;
 					float ty = 1.0f;
 					if (how_much.x != 0.0f && (vel_x_1 != 0.0 || vel_x_2 != 0.0) && vel_x_1 != vel_x_2) {
-						float t = (desired_x + aabb2->previous_position.x - aabb1->previous_position.x) / (vel_x_1 - vel_x_2);
+						float t = (desired_x + aabb2.previous_position.x - aabb1.previous_position.x) / (vel_x_1 - vel_x_2);
 						if (t >= 0.0f && t < 1.0f) {
 							tx = t;
 						}
 					}
 					if (how_much.y != 0.0f && (vel_y_1 != 0.0 || vel_y_2 != 0.0) && vel_y_1 != vel_y_2) {
-						float t = (desired_y + aabb2->previous_position.y - aabb1->previous_position.y) / (vel_y_1 - vel_y_2);
+						float t = (desired_y + aabb2.previous_position.y - aabb1.previous_position.y) / (vel_y_1 - vel_y_2);
 						if (t >= 0.0f && t < 1.0f) {
 							ty = t;
 						}
@@ -549,14 +521,14 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 
 					if (t >= 0.0 && t < 1.0f) {
 						if (is_dynamic1 && (vel_x_1 != 0.0f || vel_y_1 != 0.0)) {
-							Transform* tr = it.mut<Transform>();
-							tr->position.x = aabb1->previous_position.x + vel_x_1 * t;
-							tr->position.y = aabb1->previous_position.y + vel_y_1 * t;
+							Transform& tr = it.mut<Transform>();
+							tr.position.x = aabb1.previous_position.x + vel_x_1 * t;
+							tr.position.y = aabb1.previous_position.y + vel_y_1 * t;
 						}
 						if (is_dynamic2 && (vel_x_2 != 0.0f || vel_y_2 != 0.0)) {
-							Transform* tr = it2.mut<Transform>();
-							tr->position.x = aabb2->previous_position.x + vel_x_2 * t;
-							tr->position.y = aabb2->previous_position.y + vel_y_2 * t;
+							Transform& tr = it2.mut<Transform>();
+							tr.position.x = aabb2.previous_position.x + vel_x_2 * t;
+							tr.position.y = aabb2.previous_position.y + vel_y_2 * t;
 						}
 					}
 				}
@@ -568,53 +540,53 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 	auto staq = entity_manager().query<Sensors, Transform, AABB>();
 	for (auto it = staq.begin(); it != staq.end(); ++it) {
 		auto e1 = it.entity();
-		const AABB* aabb1 = it.value<AABB>();
-		const Transform* t1 = it.value<Transform>();
-		Sensors* s = it.mut<Sensors>();
+		const AABB& aabb1 = it.value<AABB>();
+		const Transform& t1 = it.value<Transform>();
+		Sensors& s = it.mut<Sensors>();
 
 		const float sensor_dist = 1;
 
-		sf::Vector2f h_sensor_size = sf::Vector2f(sensor_dist, aabb1->half_size.y);
-		sf::Vector2f w_sensor_size = sf::Vector2f(aabb1->half_size.x, sensor_dist);
+		sf::Vector2f h_sensor_size = sf::Vector2f(sensor_dist, aabb1.half_size.y);
+		sf::Vector2f w_sensor_size = sf::Vector2f(aabb1.half_size.x, sensor_dist);
 
-		sf::Vector2f left_sensor = sf::Vector2f(t1->position.x - aabb1->half_size.x, t1->position.y);
-		sf::Vector2f right_sensor = sf::Vector2f(t1->position.x + aabb1->half_size.x, t1->position.y);
-		sf::Vector2f top_sensor = sf::Vector2f(t1->position.x, t1->position.y - aabb1->half_size.y);
-		sf::Vector2f bottom_sensor = sf::Vector2f(t1->position.x, t1->position.y + aabb1->half_size.y);
+		sf::Vector2f left_sensor = sf::Vector2f(t1.position.x - aabb1.half_size.x, t1.position.y);
+		sf::Vector2f right_sensor = sf::Vector2f(t1.position.x + aabb1.half_size.x, t1.position.y);
+		sf::Vector2f top_sensor = sf::Vector2f(t1.position.x, t1.position.y - aabb1.half_size.y);
+		sf::Vector2f bottom_sensor = sf::Vector2f(t1.position.x, t1.position.y + aabb1.half_size.y);
 
-		s->left = false;
-		s->right = false;
-		s->top = false;
-		s->bottom = false;
+		s.left = false;
+		s.right = false;
+		s.top = false;
+		s.bottom = false;
 
 		for (auto it2 = atq.begin(); it2 != atq.end(); ++it2) {
 			auto e2 = it2.entity();
-			const AABB* aabb2 = it2.value<AABB>();
-			const Transform* t2 = it2.value<Transform>();
+			const AABB& aabb2 = it2.value<AABB>();
+			const Transform& t2 = it2.value<Transform>();
 
 			if (e1 == e2) {
 				continue;
 			}
 
-			if (aabb2->material == AABB::Material::Permeable) {
+			if (aabb2.material == AABB::Material::Permeable) {
 				continue;
 			}
 
-			auto check = overlap(h_sensor_size, left_sensor, aabb2->half_size, t2->position);
+			auto check = overlap(h_sensor_size, left_sensor, aabb2.half_size, t2.position);
 			if (std::get<0>(check)) {
-				s->left = true;
+				s.left = true;
 			}
-			check = overlap(h_sensor_size, right_sensor, aabb2->half_size, t2->position);
+			check = overlap(h_sensor_size, right_sensor, aabb2.half_size, t2.position);
 			if (std::get<0>(check)) {
-				s->right = true;
+				s.right = true;
 			}
-			check = overlap(w_sensor_size, top_sensor, aabb2->half_size, t2->position);
+			check = overlap(w_sensor_size, top_sensor, aabb2.half_size, t2.position);
 			if (std::get<0>(check)) {
-				s->top = true;
+				s.top = true;
 			}
-			check = overlap(w_sensor_size, bottom_sensor, aabb2->half_size, t2->position);
+			check = overlap(w_sensor_size, bottom_sensor, aabb2.half_size, t2.position);
 			if (std::get<0>(check)) {
-				s->bottom = true;
+				s.bottom = true;
 			}
 		}
 	}
@@ -630,21 +602,21 @@ void GameScene::DestructionSystem(GameManager& gm) {
 	bool respawn_player = false;
 	auto q = entity_manager().query<Mortal>();
 	for (auto it = q.begin(); it != q.end(); ++it) {
-		if (it.value<Mortal>()->health <= 0) {
+		if (it.value<Mortal>().health <= 0) {
 			if (it.entity() == _player) {
 				// TODO: animation & respawn
 				auto mtmq = entity_manager().query<Movement, Transform>();
 				auto pit = mtmq.find(_player);
 
-				auto h = it.mut<Mortal>();
-				auto m = pit.mut<Movement>();
-				auto t = pit.mut<Transform>();
+				Mortal& h = it.mut<Mortal>();
+				Movement& m = pit.mut<Movement>();
+				Transform& t = pit.mut<Transform>();
 
-				h->health = PLAYER_STARTING_HEALTH;
-				m->velocity.x = 0.0f;
-				m->velocity.y = _level->player.jump_speed;
-				t->position.x = (float)(_level->milestones[_milestone_reached].x * _level->tile_width) + 8.0f;
-				t->position.y = (float)(_level->milestones[_milestone_reached].y * _level->tile_height) + 8.0f;
+				h.health = PLAYER_STARTING_HEALTH;
+				m.velocity.x = 0.0f;
+				m.velocity.y = _level->player.jump_speed;
+				t.position.x = (float)(_level->milestones[_milestone_reached].x * _level->tile_width) + 8.0f;
+				t.position.y = (float)(_level->milestones[_milestone_reached].y * _level->tile_height) + 8.0f;
 			}
 			else {
 				// TODO: fragment system or items spawner
@@ -666,43 +638,43 @@ void GameScene::SetPlayerAnimationSystem(GameManager& gm) {
 	auto q = entity_manager().query<Movement, Animation, Sprite, Transform>();
 	auto it = q.find(_player);
 
-	const Movement* m = it.value<Movement>();
-	const Animation* ani = it.value<Animation>();
+	const Movement& m = it.value<Movement>();
+	const Animation& ani = it.value<Animation>();
 
-	if (m->velocity.x < 0) {
-		it.mut<Transform>()->scale = sf::Vector2f(-1.0f, 1.0f);
+	if (m.velocity.x < 0) {
+		it.mut<Transform>().scale = sf::Vector2f(-1.0f, 1.0f);
 	}
-	else if (m->velocity.x > 0) {
-		it.mut<Transform>()->scale = sf::Vector2f(1.0f, 1.0f);
+	else if (m.velocity.x > 0) {
+		it.mut<Transform>().scale = sf::Vector2f(1.0f, 1.0f);
 	}
 
 	std::string change_animation = "";
-	if (m->velocity.y != 0) {
+	if (m.velocity.y != 0) {
 		change_animation = _level->player.fall_animation;
 	}
-	else if (m->velocity.x != 0) {
+	else if (m.velocity.x != 0) {
 		change_animation = _level->player.run_animation;
 	}
 	else {
 		change_animation = _level->player.stand_animation;
 	}
 
-	if (change_animation != "" && ani->name != change_animation) {
+	if (change_animation != "" && ani.name != change_animation) {
 		auto ani_info = gm.asset_manager().GetAnimation(change_animation);
 		auto& tex = std::get<sf::Texture&>(ani_info);
 		auto spconfig = std::get<SpriteAnimationConfig>(ani_info);
 
-		Animation* ani = it.mut<Animation>();
-		Sprite* s = it.mut<Sprite>();
+		Animation& ani = it.mut<Animation>();
+		Sprite& s = it.mut<Sprite>();
 
-		s->t = &tex;
-		s->set_rect(sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h));
-		ani->config = spconfig;
-		ani->current_frame = 0;
-		ani->destroyAfter = false;
-		ani->loop = true;
-		ani->name = change_animation;
-		ani->next_animation = "";
+		s.t = &tex;
+		s.set_rect(sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h));
+		ani.config = spconfig;
+		ani.current_frame = 0;
+		ani.destroyAfter = false;
+		ani.loop = true;
+		ani.name = change_animation;
+		ani.next_animation = "";
 	}
 }
 // Run the animations on objects and yes this is FixedUpdate, not render update.
@@ -710,53 +682,51 @@ void GameScene::SetPlayerAnimationSystem(GameManager& gm) {
 void GameScene::AnimationSystem(GameManager& gm) {
 	auto asq = entity_manager().query<Animation, Sprite>();
 	for (auto it = asq.begin(); it != asq.end(); ++it) {
-		if (it.value<Animation>()->config.total_frames <= 1) {
+		if (it.value<Animation>().config.total_frames <= 1) {
 			continue;
 		}
-		Animation* ani = it.mut<Animation>();
-		Sprite* s = it.mut<Sprite>();
-		ani->current_frame++;
-		auto actual_frame = ani->current_frame / ani->config.frame_ticks;
-		if (actual_frame >= ani->config.total_frames) {
-			ani->current_frame = 0;
+		Animation& ani = it.mut<Animation>();
+		Sprite& s = it.mut<Sprite>();
+		ani.current_frame++;
+		auto actual_frame = ani.current_frame / ani.config.frame_ticks;
+		if (actual_frame >= ani.config.total_frames) {
+			ani.current_frame = 0;
 			actual_frame = 0;
 		}
 
-		int x = (actual_frame * (ani->config.w + 1)) + ani->config.x;
-		s->set_rect(sf::FloatRect((float)x, (float)ani->config.y, (float)ani->config.w, (float)ani->config.h));
+		int x = (actual_frame * (ani.config.w + 1)) + ani.config.x;
+		s.set_rect(sf::FloatRect((float)x, (float)ani.config.y, (float)ani.config.w, (float)ani.config.h));
 	}
 }
 
 // Render all objects, but not the GUI
 // Components: Position, Animation
 void GameScene::Render(GameManager& gm, sf::RenderWindow& window, int delta_ms) {
-	const Transform* player_t = entity_manager().get<Transform>(_player);
-	if (player_t != nullptr) {
-		float y = _camera.getCenter().y;
-		float x = fmin(max_screen_x, fmax(min_screen_x, player_t->position.x));
-		_camera.setCenter(x, y);
-		gm.SetCamera(_camera);
-	}
+	const Transform& player_t = entity_manager().get<Transform>(_player);
+	float y = _camera.getCenter().y;
+	float x = fmin(max_screen_x, fmax(min_screen_x, player_t.position.x));
+	_camera.setCenter(x, y);
+	gm.SetCamera(_camera);
 
 	auto stq = entity_manager().query<Sprite, Transform>();
 	for (auto it = stq.begin(); it != stq.end(); ++it) {
-		it.value<Sprite>()->render(window, it.value<Transform>()->transform());
+		it.value<Sprite>().render(window, it.value<Transform>().transform());
 	}
 
 	if (_render_colliders) {
 		auto atq = entity_manager().query<AABB, Transform>();
 		for (auto it = atq.begin(); it != atq.end(); ++it) {
-			AABB* aabb = it.mut<AABB>();
-			const Transform* t = it.value<Transform>();
-			if (aabb->collision) {
-				aabb->render_box.setOutlineColor(sf::Color::Red);
+			AABB& aabb = it.mut<AABB>();
+			const Transform& t = it.value<Transform>();
+			if (aabb.collision) {
+				aabb.render_box.setOutlineColor(sf::Color::Red);
 			}
 			else {
-				aabb->render_box.setOutlineColor(sf::Color::White);
+				aabb.render_box.setOutlineColor(sf::Color::White);
 			}
-			aabb->render_box.setPosition(t->position.x, t->position.y);
+			aabb.render_box.setPosition(t.position.x, t.position.y);
 
-			window.draw(aabb->render_box);
+			window.draw(aabb.render_box);
 		}
 	}
 }

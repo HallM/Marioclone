@@ -36,7 +36,11 @@ namespace MattECS {
 			bool operator==(iterator other) const { return (is_end() && other.is_end()) || _index == other._index; }
 			bool operator!=(iterator other) const { return !((is_end() && other.is_end()) || _index == other._index); }
 			EntityID entity() const { return _c->_ids[_index]; }
-			C* value() const { return &_c->_values[_index]; }
+			C& value() const { return _c->_values[_index]; }
+			std::optional<size_t> index() const {
+				if (is_end()) { return {}; }
+				return _index;
+			}
 		};
 
 		ComponentManager() : _should_sort(false), _changed(false) {}
@@ -53,19 +57,21 @@ namespace MattECS {
 			return iterator(this, index);
 		}
 
-		const C* cvalue(EntityID id) {
-			auto it = _id_to_index.find(id);
-			if (it == _id_to_index.end()) {
-				return nullptr;
-			}
-			return &_values[it->second];
+		bool has(EntityID id) const {
+			return _id_to_index.find(id) != _id_to_index.end();
 		}
-		C* value(EntityID id) {
-			auto it = _id_to_index.find(id);
-			if (it == _id_to_index.end()) {
-				return nullptr;
-			}
-			return &_values[it->second];
+
+		const C& cvalue(EntityID id) {
+			auto index = _id_to_index[id];
+			return _values[index];
+		}
+		C& value(EntityID id) {
+			auto index = _id_to_index[id];
+			return _values[index];
+		}
+
+		C& at(size_t index) {
+			return _values[index];
 		}
 
 		virtual void delete_item(EntityID id) {
@@ -203,31 +209,29 @@ namespace MattECS {
 					_next();
 					return *this;
 				}
-				//// postfix
-				//iterator operator++(int) {
-				//	iterator it(_it, _end, _values);
-				//	++_it;
-				//	return it;
-				//}
 
 				bool operator==(iterator other) const { return _it == other._it; }
 				bool operator!=(iterator other) const { return _it != other._it; }
 
 				EntityID entity() const { return _it.entity(); }
 				template <typename C>
-				const C* value() {
-					return std::get<C*>(_values);
+				bool has() {
+					return _indices[_cindex<C, CFirst, COthers...>()].has_value();
 				}
+
 				template <typename C>
-				C* mut() {
+				const C& value() {
+					auto index = _indices[_cindex<C, CFirst, COthers...>()].value();
+					return std::get<ComponentManager<C>*>(_cmanagers)->at(index);
+				}
+
+				template <typename C>
+				C& mut() {
 					std::get<ComponentManager<C>*>(_cmanagers)->set_changed();
-					return std::get<C*>(_values);
+					auto index = _indices[_cindex<C, CFirst, COthers...>()].value();
+					return std::get<ComponentManager<C>*>(_cmanagers)->at(index);
 				}
 			private:
-				//iterator(ComponentManager<CFirst>::iterator it, ComponentManager<CFirst>::iterator end, std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...>& cmanagers, std::tuple<CFirst*, COthers*...>& v) : _it(it), _end(end), _cmanagers(cmanagers), _values(v), _has_all(true) {
-				//	// assume that this is a legit point
-				//}
-
 				void _next() {
 					do {
 						++_it;
@@ -240,19 +244,28 @@ namespace MattECS {
 						return;
 					}
 					auto id = _it.entity();
-					_values = std::make_tuple(
-						_it.value(),
-						std::get<ComponentManager<COthers>*>(_cmanagers)->value(id)...
-					);
-					// the first element is always valid/not null so only look at 1..N
-					_has_all = ((_is_optional[Is+1] || std::get<Is+1>(_values) != nullptr) && ...);
+					_indices[0] = _it.index();
+					((_indices[Is+1] = std::get<ComponentManager<COthers>*>(_cmanagers)->find(id).index()), ...);
+					_has_all = ((_is_optional[Is+1] || _indices[Is+1]) && ...);
 				}
 				bool _has_all;
-				std::tuple<CFirst*, COthers*...> _values;
+				std::optional<size_t> _indices[1 + sizeof...(COthers)];
 				ComponentManager<CFirst>::iterator _it;
 				ComponentManager<CFirst>::iterator _end;
 				bool _is_optional[1 + sizeof...(COthers)];
 				std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...>& _cmanagers;
+
+				template<typename CT, typename CH, typename... CR>
+				constexpr size_t _cindex() {
+					if constexpr (std::is_same<CT, CH>::value) {
+						return 0;
+					}
+					return 1 + _cindex<CT, CR...>();
+				}
+				template<typename CT>
+				constexpr size_t _cindex() {
+					return 0;
+				}
 			};
 
 			Querier(std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...> managers) : _cmanagers(managers) {
@@ -337,13 +350,9 @@ namespace MattECS {
 		}
 
 		template <typename C>
-		const C* get(EntityID id) {
+		const C& get(EntityID id) {
 			auto c = _manager<C>();
 			return c->cvalue(id);
-		}
-		template <typename CFirst, typename CSecond, typename... COthers>
-		std::tuple<const CFirst*, const CSecond*, const COthers*...> get(EntityID id) {
-			return std::make_tuple(get<CFirst>(id), get<CSecond>(id), get<COthers>(id)...);
 		}
 
 		template <typename C, typename... Args>
@@ -369,17 +378,6 @@ namespace MattECS {
 			}
 		}
 
-		template <typename C>
-		void update(EntityID id, std::function<void(C*)> callable) {
-			auto v = get_mut<C>(id);
-			callable(v);
-		}
-		template <typename CFirst, typename... COthers>
-		void update(EntityID id, std::function<void(CFirst*, COthers*...)> callable) {
-			auto v = get_mut<CFirst, COthers...>(id);
-			callable(std::get<CFirst*>(v), std::get<COthers*>(v)...);
-		}
-
 		// finalize_update should be called when no iterators are held
 		// to avoid invalidating iterators. This will finalize added/removed
 		// components and entities.
@@ -394,21 +392,6 @@ namespace MattECS {
 			// return &std::get<ComponentManager<C>>(_cmanagers);
 			auto ti = std::type_index(typeid(C));
 			return (ComponentManager<C>*)_idautomanagers[ti];
-		}
-
-		template <typename C>
-		C* get_mut(EntityID id) {
-			auto c = _manager<C>();
-			c->set_changed();
-			auto it = c->find(id);
-			if (it == c->end()) {
-				return nullptr;
-			}
-			return it.value();
-		}
-		template <typename CFirst, typename CSecond, typename... COthers>
-		std::tuple<CFirst*, CSecond*, COthers*...> get_mut(EntityID id) {
-			return std::make_tuple(get_mut<CFirst>(id), get_mut<CSecond>(id), get_mut<COthers>(id)...);
 		}
 
 		EntityID _last_id;
