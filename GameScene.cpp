@@ -401,7 +401,9 @@ bool point_in_rect(sf::Vector2f p, AABB* aabb, Transform* t) {
 // Components: AABB, Collision*
 void GameScene::DetectCollisionSystem(GameManager& gm) {
 	auto atq = entity_manager().query<Transform, AABB>();
-	for (auto it = atq.begin(); it != atq.end(); ++it) {
+	auto atq_end = atq.end();
+
+	for (auto it = atq.begin(); it != atq_end; ++it) {
 		AABB* aabb = it.mut<AABB>();
 		const Transform* t = it.value<Transform>();
 		aabb->collision = false;
@@ -410,15 +412,26 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 	}
 
 	// TODO: entities could be pushed inside of another moved entity... and boom
-	for (auto it = atq.begin(); it != atq.end(); ++it) {
+	// Using a separate query for the optional pieces to only load when needed.
+	auto mmq = entity_manager().query<Mortal, Movement>().optional<Mortal>().optional<Movement>();
+	for (auto it = atq.begin(); it != atq_end; ++it) {
 		MattECS::EntityID e1 = it.entity();
 		const AABB* aabb1 = it.value<AABB>();
 		const Transform* t1 = it.value<Transform>();
+		const Movement* m1;
+		bool is_dynamic1;
+		bool is_deadly1;
+		bool is_mortal1;
+
 		MattECS::EntityID e2;
 		const AABB* aabb2;
 		const Transform* t2;
+		const Movement* m2;
+		bool is_dynamic2;
+		bool is_deadly2;
+		bool is_mortal2;
 
-		for (auto it2 = atq.find(e1); it2 != atq.end(); ++it2) {
+		for (auto it2 = atq.find(e1); it2 != atq_end; ++it2) {
 			e2 = it2.entity();
 			if (e1 == e2) {
 				continue;
@@ -439,14 +452,17 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 				it.mut<AABB>()->collision = true;
 				it2.mut<AABB>()->collision = true;
 
-				const Movement* m1 = entity_manager().get<Movement>(e1);
-				const Movement* m2 = entity_manager().get<Movement>(e2);
-				bool is_dynamic1 = m1 != nullptr;
-				bool is_dynamic2 = m2 != nullptr;
-				bool is_deadly1 = aabb1->damage > 0.0f;
-				bool is_deadly2 = aabb2->damage > 0.0f;
-				bool is_mortal1 = entity_manager().get<Mortal>(e1) != nullptr;
-				bool is_mortal2 = entity_manager().get<Mortal>(e2) != nullptr;
+				auto mmit1 = mmq.find(e1);
+				m1 = mmit1.value<Movement>();
+				is_dynamic1 = m1 != nullptr;
+				is_deadly1 = aabb1->damage > 0.0f;
+				is_mortal1 = mmit1.value<Mortal>() != nullptr;
+
+				auto mmit2 = mmq.find(e2);
+				m2 = mmit2.value<Movement>();
+				is_dynamic2 = m2 != nullptr;
+				is_deadly2 = aabb2->damage > 0.0f;
+				is_mortal2 = mmit2.value<Mortal>() != nullptr;
 
 				// lava instantly kills any mortal that touches it
 				// fireballs remove 1 hp from any mortal that touches it AND the fireball dies
@@ -466,14 +482,12 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 				// if 1 deadly and other is mortal
 
 				if (is_deadly1 && is_mortal2 && aabb1->piercing >= aabb2->hardness) {
-					entity_manager().update<Mortal>(e2, [&aabb1](Mortal* m) {
-						m->health -= aabb1->damage;
-						});
+					mmit2.mut<Mortal>()->health -= aabb1->damage;
+					//entity_manager().update<Mortal>(e2, [&aabb1](Mortal* h) { h->health -= aabb1->damage; });
 				}
 				if (is_deadly2 && is_mortal1 && aabb2->piercing >= aabb1->hardness) {
-					entity_manager().update<Mortal>(e1, [&aabb2](Mortal* m) {
-						m->health -= aabb2->damage;
-						});
+					mmit1.mut<Mortal>()->health -= aabb2->damage;
+					//entity_manager().update<Mortal>(e1, [&aabb2](Mortal* h) { h->health -= aabb2->damage; });
 				}
 
 				// if either is permeable, then we don't adjust positions.

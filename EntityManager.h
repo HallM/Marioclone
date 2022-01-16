@@ -23,10 +23,10 @@ namespace MattECS {
 	class ComponentManager : public IComponentManager {
 	public:
 		class iterator {
-			unsigned int _index = 0;
+			size_t _index = 0;
 			ComponentManager<C>* _c = nullptr;
 		public:
-			explicit iterator(ComponentManager<C>* c, unsigned int i) : _c(c), _index(i) {}
+			explicit iterator(ComponentManager<C>* c, size_t i) : _c(c), _index(i) {}
 			bool is_end() const { return _index >= _c->_ids.size(); }
 			bool has_next() const { return (_index + 1) < _c->_ids.size(); }
 			iterator& operator++() { _index++; return *this; }
@@ -49,7 +49,7 @@ namespace MattECS {
 			if (it == _id_to_index.end()) {
 				return end();
 			}
-			unsigned int index = it->second;
+			size_t index = it->second;
 			return iterator(this, index);
 		}
 
@@ -192,7 +192,7 @@ namespace MattECS {
 					for (unsigned int i = 1; i < sizeof...(COthers) + 1; i++) {
 						_is_optional[i] = is_optional[i];
 					}
-					_set_values();
+					_set_values(std::index_sequence_for<COthers...>{});
 					if (!_has_all && _it != _end) {
 						_next();
 					}
@@ -231,36 +231,28 @@ namespace MattECS {
 				void _next() {
 					do {
 						++_it;
-						_set_values();
+						_set_values(std::index_sequence_for<COthers...>{});
 					} while (!_has_all && _it != _end);
 				}
-				void _set_values() {
+				template <std::size_t... Is>
+				void _set_values(std::index_sequence<Is...>) {
 					if (_it == _end) {
 						return;
 					}
 					auto id = _it.entity();
-					_has_all = true;
 					_values = std::make_tuple(
 						_it.value(),
 						std::get<ComponentManager<COthers>*>(_cmanagers)->value(id)...
 					);
-					bool isNulls[sizeof...(COthers) + 1] = {
-						_it.value() == nullptr,
-						(std::get<COthers*>(_values) == nullptr)...
-					};
-					for (unsigned int i = 1; i < sizeof...(COthers) + 1; i++) {
-						if (!_is_optional[i] && isNulls[i]) {
-							_has_all = false;
-							break;
-						}
-					}
+					// the first element is always valid/not null so only look at 1..N
+					_has_all = ((_is_optional[Is+1] || std::get<Is+1>(_values) != nullptr) && ...);
 				}
 				bool _has_all;
 				std::tuple<CFirst*, COthers*...> _values;
 				ComponentManager<CFirst>::iterator _it;
 				ComponentManager<CFirst>::iterator _end;
 				bool _is_optional[1 + sizeof...(COthers)];
-				std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...> _cmanagers;
+				std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...>& _cmanagers;
 			};
 
 			Querier(std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...> managers) : _cmanagers(managers) {
@@ -299,6 +291,10 @@ namespace MattECS {
 					return 0;
 				}
 				return 1 + _cindex<CT, CR...>();
+			}
+			template<typename CT>
+			constexpr size_t _cindex() {
+				return 0;
 			}
 		};
 
@@ -343,11 +339,7 @@ namespace MattECS {
 		template <typename C>
 		const C* get(EntityID id) {
 			auto c = _manager<C>();
-			auto it = c->find(id);
-			if (it == c->end()) {
-				return nullptr;
-			}
-			return it.value();
+			return c->cvalue(id);
 		}
 		template <typename CFirst, typename CSecond, typename... COthers>
 		std::tuple<const CFirst*, const CSecond*, const COthers*...> get(EntityID id) {
