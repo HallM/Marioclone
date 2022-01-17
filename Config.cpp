@@ -1,30 +1,43 @@
 #include "Config.h"
 
-#include <fstream>
+#include "toml.hpp"
 #include <iostream>
 
-Config readConfig(std::string file_path) {
-	std::ifstream file_stream(file_path);
+std::variant<ConfigParseError, ConfigValueError, Config> readConfig(std::string file_path) {
+	Config c = { 640, 480, 30, 0 };
 
-	Config c;
+	try {
+		toml::table toml_config = toml::parse_file(file_path);
 
-	while (file_stream.good()) {
-		std::string cmd;
-		file_stream >> cmd;
-		if (!file_stream.good()) {
-			break;
-		}
-		std::cout << "Do " << cmd << "\n";
+		auto window_config = toml_config["window"];
 
-		if ("Window" == cmd) {
-			file_stream >> c.window.width;
-			file_stream >> c.window.height;
-			file_stream >> c.window.framerate;
-			file_stream >> c.window.enable_fullscreen;
+		auto w = window_config["width"].value<int>();
+		if (!w || w.value() <= 0) {
+			return ConfigValueError{ "window.width must be a positive integer" };
 		}
-		else {
-			std::cerr << "Unknown command: " << cmd << "\n";
+		c.window.width = (unsigned int)w.value();
+
+		auto h = window_config["height"].value<int>();
+		if (!h || h.value() <= 0) {
+			return ConfigValueError{ "window.height must be a positive integer" };
 		}
+		c.window.height = (unsigned int)h.value();
+
+		auto maxfps = window_config["maxfps"].value<int>();
+		if (!maxfps || maxfps.value() <= 0) {
+			return ConfigValueError{ "window.maxfps must be a positive integer" };
+		}
+		c.window.framerate = (unsigned int)maxfps.value();
+
+		auto windowed = window_config["windowed"].value<bool>();
+		if (!windowed) {
+			return ConfigValueError{ "window.height must be true or false" };
+		}
+		c.window.enable_fullscreen = windowed.value();
 	}
+	catch (const toml::parse_error& err) {
+		return ConfigParseError{err.description()};
+	}
+
 	return c;
 }

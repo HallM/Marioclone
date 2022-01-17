@@ -1,16 +1,49 @@
 #include "Levels.h"
 
-#include <fstream>
 #include <iostream>
-#include <sstream>
+
+#include "toml.hpp"
 
 Levels::Levels() {}
 Levels::~Levels() {}
 
 std::optional<std::shared_ptr<TileMap>> load_tilemap(std::string path) {
+	std::shared_ptr<TileMap> tmap = std::make_shared<TileMap>();
+	//try {
+	//	toml::table toml_config = toml::parse_file(path);
+
+	//	auto levels = toml_config["levels"].as_array();
+	//	if (!levels) {
+	//		std::cerr << "levels should be a list of toml objects\n";
+	//		return {};
+	//	}
+	//	size_t i = 0;
+	//	for (auto& l : *levels) {
+	//		auto t = l.as_table();
+	//		if (!t) {
+	//			std::cerr << "levels[" << i << "] should be a list of toml objects\n";
+	//			return {};
+	//		}
+
+	//		auto name = (*t)["name"].value<std::string>();
+	//		if (!name || name.value().length() <= 0) {
+	//			std::cerr << "Level " << i << " name should be a string of some length\n";
+	//			return {};
+	//		}
+	//		c.window.width = (unsigned int)w.value();
+
+
+	//		i++;
+	//	}
+
+	//}
+	//catch (const toml::parse_error& err) {
+	//	std::cerr << "Failed to parse level " << path << ":\n" << err << "\n";
+	//	return {};
+	//}
+
 	std::ifstream file_stream(path);
 
-	std::shared_ptr<TileMap> tmap = std::make_shared<TileMap>();
 	while (file_stream.good()) {
 		std::string cmd;
 		file_stream >> cmd;
@@ -63,36 +96,50 @@ std::optional<std::shared_ptr<TileMap>> load_tilemap(std::string path) {
 }
 
 bool Levels::Load(std::string config) {
-	std::ifstream file_stream(config);
+	try {
+		toml::table toml_config = toml::parse_file(config);
 
-	std::vector<std::string> level_paths;
-
-	while (file_stream.good()) {
-		std::string cmd;
-		file_stream >> cmd;
-		if (!file_stream.good()) {
-			break;
-		}
-
-		if ("Level" == cmd) {
-			std::string path;
-			file_stream >> path;
-			level_paths.push_back(path);
-		}
-		else {
-			std::cerr << "Unknown command: " << cmd << "\n";
+		auto levels = toml_config["levels"].as_array();
+		if (!levels) {
+			std::cerr << "levels should be a list of toml objects\n";
 			return false;
 		}
+		size_t i = 0;
+		for (auto& l : *levels) {
+			auto t = l.as_table();
+			if (!t) {
+				std::cerr << "levels[" << i << "] should be a list of toml objects\n";
+				return false;
+			}
+
+			auto name = (*t)["name"].value<std::string>();
+			if (!name || name.value().length() <= 0) {
+				std::cerr << "levels[" << i << "] name should be a string of some length\n";
+				return false;
+			}
+			if (_levels.find(name.value()) != _levels.end()) {
+				std::cerr << "levels[" << i << "] tried to redefine level named " << name.value() << "\n";
+				return false;
+			}
+
+			auto path = (*t)["file"].value<std::string>();
+			if (!path || path.value().length() <= 0) {
+				std::cerr << "levels[" << i << "] path should be a string of some length\n";
+				return false;
+			}
+			auto loaded = load_tilemap(path.value());
+			if (!loaded) {
+				return false;
+			}
+			_levels[name.value()] = loaded.value();
+
+			i++;
+		}
+
 	}
-
-	for (unsigned int i = 0; i < level_paths.size(); i++) {
-		std::stringstream ss;
-		ss << "Level " << (i + 1);
-		auto l = load_tilemap(level_paths[i]);
-		if (!l.has_value()) {
-			return false;
-		}
-		_levels[ss.str()] = l.value();
+	catch (const toml::parse_error& err) {
+		std::cerr << "Failed to parse config " << config << ":\n" << err << "\n";
+		return false;
 	}
 
 	return true;

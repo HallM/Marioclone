@@ -1,1 +1,5 @@
-Window 1280 1200 60 0
+[window]
+width = 1280
+height = 1200
+maxfps = 60
+windowed = true

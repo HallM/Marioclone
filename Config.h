@@ -1,18 +1,24 @@
 #pragma once
 
 #include <string>
+#include <variant>
 
 struct WindowConfig {
 	unsigned int width;
 	unsigned int height;
 	unsigned int framerate;
-	unsigned int enable_fullscreen;
+	bool enable_fullscreen;
 };
 
 struct Config {
 	WindowConfig window;
 };
 
-// extern Config DEFAULT_CONFIG = { WindowConfig{1024, 768, 60, 0} };
+struct ConfigParseError {
+	std::string_view error;
+};
+struct ConfigValueError {
+	std::string error;
+};
 
-Config readConfig(std::string file_path);
+std::variant<ConfigParseError, ConfigValueError, Config> readConfig(std::string file_path);

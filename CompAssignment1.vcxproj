@@ -87,9 +87,7 @@
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="AssetManager.cpp" />
     <ClCompile Include="Assets.cpp" />
-    <ClCompile Include="ChunkedTileMap.cpp" />
     <ClCompile Include="Config.cpp" />
-    <ClCompile Include="Game.cpp" />
     <ClCompile Include="GameManager.cpp" />
     <ClCompile Include="GameScene.cpp" />
     <ClCompile Include="Levels.cpp" />
@@ -107,18 +105,16 @@
     <ClInclude Include="AssetManager.h" />
     <ClInclude Include="Assets.h" />
     <ClInclude Include="BaseScene.h" />
-    <ClInclude Include="ChunkedTileMap.h" />
     <ClInclude Include="Colors.h" />
     <ClInclude Include="Components.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="EntityManager.h" />
-    <ClInclude Include="Game.h" />
     <ClInclude Include="GameManager.h" />
     <ClInclude Include="GameScene.h" />
     <ClInclude Include="Levels.h" />
     <ClInclude Include="MenuScene.h" />
     <ClInclude Include="timsort.hpp" />
-    <ClInclude Include="Vec.h" />
+    <ClInclude Include="toml.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
