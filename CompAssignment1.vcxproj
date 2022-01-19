@@ -92,13 +92,15 @@
     <ClCompile Include="GameScene.cpp" />
     <ClCompile Include="Levels.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MapManager.cpp" />
     <ClCompile Include="MenuScene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="assets.txt" />
     <Text Include="config.txt" />
     <Text Include="levels.txt" />
-    <Text Include="map1.txt" />
+    <Text Include="level1-1.txt" />
+    <Text Include="tileset-outdoor.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Action.h" />
@@ -112,6 +114,7 @@
     <ClInclude Include="GameManager.h" />
     <ClInclude Include="GameScene.h" />
     <ClInclude Include="Levels.h" />
+    <ClInclude Include="MapManager.h" />
     <ClInclude Include="MenuScene.h" />
     <ClInclude Include="timsort.hpp" />
     <ClInclude Include="toml.hpp" />

@@ -6,6 +6,12 @@
 
 #include "Assets.h"
 
+struct ZIndex {
+	int z_index;
+	ZIndex() : z_index(0) {}
+	ZIndex(int z) : z_index(z) {}
+};
+
 struct Sprite {
 	sf::Texture* t;
 	sf::VertexArray va;

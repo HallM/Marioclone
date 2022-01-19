@@ -5,7 +5,7 @@
 
 #include "GameScene.h"
 
-MenuScene::MenuScene(const Levels& level_manager) : _level_manager(level_manager), _item_selected(0) {
+MenuScene::MenuScene() : _item_selected(0) {
 	RegisterActionSystem(&MenuScene::HandleInput);
 	RegisterRenderGUISystem(&MenuScene::RenderMenu);
 }
@@ -17,7 +17,7 @@ std::optional<SceneError> MenuScene::Load(GameManager& gm) {
 
 	auto font = gm.asset_manager().GetFont("Roboto");
 
-	for (const auto& level_name : _level_manager.GetLevelNames()) {
+	for (const auto& level_name : gm.map_manager().get_level_names()) {
 		sf::Text t(level_name, *font, 24);
 		t.setFillColor(sf::Color::White);
 		_menu_items.push_back(t);
@@ -75,7 +75,12 @@ void MenuScene::HandleInput(GameManager& gm, const std::vector<Action>& actions,
 			}
 			else {
 				auto level_name = _menu_items[_item_selected].getString();
-				gm.PushScene(std::make_unique<GameScene>(_level_manager.GetLevel(level_name).value()));
+				auto maybe = gm.map_manager().get_level(level_name);
+				if (!maybe) {
+					gm.Quit();
+					return;
+				}
+				gm.PushScene(std::make_unique<GameScene>(maybe.value()));
 			}
 			break;
 		case ActionType::MENU:

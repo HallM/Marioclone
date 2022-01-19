@@ -1,0 +1,737 @@
+name = "Outdoor Mario"
+texture = "TileMap"
+
+# Starting the count at 1 since the maps use 0 for nothing, 1 for index 0.
+
+# Row 1
+
+[[tiles]] # 1
+name = "Rock"
+x = 0
+y = 0
+width = 16
+height = 16
+# if passage = false, then AABB is assumed to be 0,0,w,h
+passage = false
+# destructable only works if passage = true
+destructable = false
+hardness = 0
+# having any damage makes an AABB as well
+damage = 0
+piercing = 0
+# set an aabb manually for specific size OR making it interactable
+# aabb = {x, y, width, height}
+animation_frames = 0
+animation_rate = 0
+# later will add more complex passage, ladders, counters, bush
+
+[[tiles]] # 2
+name = "Brick"
+x = 16
+y = 0
+width = 16
+height = 16
+passage = false
+destructable = true
+hardness = 2
+
+[[tiles]] # 3
+name = "BG Brick"
+x = 32
+y = 0
+width = 16
+height = 16
+passage = false
+destructable = true
+hardness = 2
+
+[[tiles]] # 4
+name = "Used Brick"
+x = 48
+y = 0
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 5
+name = "Castle Top"
+x = 64
+y = 0
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 6
+name = "Castle Top BG"
+x = 80
+y = 0
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 7
+name = "Castle Arch"
+x = 96
+y = 0
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 8
+name = "Canon Top"
+x = 112
+y = 0
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 9
+name = "Cloud Top Left"
+x = 128
+y = 0
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 10
+name = "Cloud Top Mid"
+x = 144
+y = 0
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 11
+name = "Cloud Top Right"
+x = 160
+y = 0
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 12
+name = "Water Top"
+x = 176
+y = 0
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 13
+name = "Happy Cloud"
+x = 192
+y = 0
+width = 16
+height = 16
+passage = false
+
+
+# Row 2
+
+[[tiles]] # 14
+name = "Solid Block"
+x = 0
+y = 16
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 15
+name = "Squigz"
+x = 16
+y = 16
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 16
+name = "Two Dot Thingz"
+x = 32
+y = 16
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 17
+name = "Castle BG Open Right"
+x = 48
+y = 16
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 18
+name = "Castle BG"
+x = 64
+y = 16
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 19
+name = "Castle BG Open Left"
+x = 80
+y = 16
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 20
+name = "Open Arch"
+x = 96
+y = 16
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 21
+name = "Canon Mid"
+x = 112
+y = 16
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 22
+name = "Cloud Bottom Left"
+x = 128
+y = 16
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 23
+name = "Cloud Bottom Mid"
+x = 144
+y = 16
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 24
+name = "Cloud Bottom Right"
+x = 160
+y = 16
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 25
+name = "Water"
+x = 176
+y = 16
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 26
+name = "Piano Something"
+x = 192
+y = 16
+width = 16
+height = 16
+passage = false
+
+
+# Row 3
+
+[[tiles]] # 27
+name = "Heavy Rock"
+x = 0
+y = 32
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 28
+name = "Rope Pulley Left"
+x = 16
+y = 32
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 29
+name = "Rope"
+x = 32
+y = 32
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 30
+name = "Rope Pulley Right"
+x = 48
+y = 32
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 31
+name = "Heartbeat thing"
+x = 64
+y = 32
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 32
+name = "At a loss"
+x = 80
+y = 32
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 33
+name = "Solid Blue 1"
+x = 96
+y = 32
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 34
+name = "Canon Bottom"
+x = 112
+y = 32
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 35
+name = "Empty 1"
+x = 128
+y = 32
+width = 16
+height = 16
+aabb = { width = 16, height = 16 }
+passage = false
+
+[[tiles]] # 36
+name = "Question Block"
+x = 144
+y = 32
+width = 16
+height = 16
+passage = false
+animation_frames = 3
+animation_rate = 8
+
+[[tiles]] # 37
+name = "Used Question Block"
+x = 192
+y = 32
+width = 16
+height = 16
+passage = false
+
+
+# Row 4
+
+[[tiles]] # 38
+name = "Square Brick"
+x = 0
+y = 48
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 39
+name = "Rope Weight"
+x = 16
+y = 48
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 40
+name = "Big Post"
+x = 32
+y = 48
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 41
+name = "Rope Vertical"
+x = 48
+y = 48
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 42
+name = "White Thing"
+x = 64
+y = 48
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 43
+name = "Like a Banner"
+x = 80
+y = 48
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 44
+name = "Dot Thing"
+x = 96
+y = 48
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 45
+name = "Blue2"
+x = 112
+y = 48
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 46
+name = "Empty 2"
+x = 128
+y = 48
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 47
+name = "Coin"
+x = 144
+y = 48
+width = 16
+height = 16
+aabb = { x = 2, y = 2, width = 12, height = 14 }
+passage = true
+animation_frames = 3
+animation_rate = 8
+
+
+# Row 5
+
+[[tiles]] # 48
+name = "Tree Top Left"
+x = 0
+y = 64
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 49
+name = "Tree Top Mid"
+x = 16
+y = 64
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 50
+name = "Tree Top Right"
+x = 32
+y = 64
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 51
+name = "Mushroom Top Left"
+x = 48
+y = 64
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 52
+name = "Mushroom Top Mid"
+x = 64
+y = 64
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 53
+name = "Mushroom Top Right"
+x = 80
+y = 64
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 54
+name = "Tall Egg Top"
+x = 96
+y = 64
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 55
+name = "VPipe Top Left"
+x = 112
+y = 64
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 56
+name = "VPipe Top Right"
+x = 128
+y = 64
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 57
+name = "Coin With BG"
+x = 144
+y = 64
+width = 16
+height = 16
+passage = true
+aabb = { x = 2, y = 2, width = 12, height = 14 }
+animation_frames = 3
+animation_rate = 8
+
+
+# Row 6
+
+[[tiles]] # 58
+name = "Bush Left"
+x = 0
+y = 80
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 59
+name = "Bush Mid"
+x = 16
+y = 80
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 60
+name = "Bush Right"
+x = 32
+y = 80
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 61
+name = "Leaves"
+x = 48
+y = 80
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 62
+name = "Empty3"
+x = 64
+y = 80
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 63
+name = "Egg"
+x = 80
+y = 80
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 64
+name = "Tall Egg Bottom"
+x = 96
+y = 80
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 65
+name = "VPipe Bottom Left"
+x = 112
+y = 80
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 66
+name = "VPipe Bottom Right"
+x = 128
+y = 80
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 67
+name = "Hammer"
+x = 144
+y = 80
+width = 16
+height = 16
+passage = true
+aabb = { width = 16, height = 16 }
+animation_frames = 3
+animation_rate = 8
+
+
+# Row 7
+
+[[tiles]] # 68
+name = "Rope Fence"
+x = 0
+y = 96
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 69
+name = "Angle Chain Link"
+x = 16
+y = 96
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 70
+name = "Hill Top"
+x = 32
+y = 96
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 71
+name = "Empty4"
+x = 48
+y = 96
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 72
+name = "Empty5"
+x = 64
+y = 96
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 73
+name = "HPipe Entry Top"
+x = 80
+y = 96
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 74
+name = "HPipe Top"
+x = 96
+y = 96
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 75
+name = "HPipe VPipe Connect Top"
+x = 112
+y = 96
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 76
+name = "Flagpole Top"
+x = 128
+y = 96
+width = 16
+height = 16
+passage = false
+aabb = { x = 6, y = 6, width = 8, height = 8 }
+
+
+# Row 8
+
+[[tiles]] # 77
+name = "Hill Left"
+x = 0
+y = 112
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 78
+name = "Hill DotR"
+x = 16
+y = 112
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 79
+name = "Hill Mid"
+x = 32
+y = 112
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 80
+name = "Hill DotL"
+x = 48
+y = 112
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 81
+name = "Hill Right"
+x = 64
+y = 112
+width = 16
+height = 16
+passage = true
+
+[[tiles]] # 82
+name = "HPipe Entry Bottom"
+x = 80
+y = 112
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 83
+name = "HPipe Bottom"
+x = 96
+y = 112
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 84
+name = "HPipe VPipe Connect Bottom"
+x = 112
+y = 112
+width = 16
+height = 16
+passage = false
+
+[[tiles]] # 85
+name = "Flagpole"
+x = 128
+y = 112
+width = 16
+height = 16
+passage = false
+aabb = { x = 8, width = 4, height = 16 }

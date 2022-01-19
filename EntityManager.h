@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <iostream>
 #include <functional>
 #include <optional>
@@ -409,6 +410,7 @@ namespace MattECS {
 		ComponentManager<C>* _manager() {
 			// return &std::get<ComponentManager<C>>(_cmanagers);
 			auto ti = std::type_index(typeid(C));
+			assert(_idautomanagers.find(ti) != _idautomanagers.end());
 			return (ComponentManager<C>*)_idautomanagers[ti];
 		}
 

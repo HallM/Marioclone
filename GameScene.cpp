@@ -18,6 +18,10 @@ const int PLAYER_BIG_PIERCE = 1;
 const int BLOCK_HARDNESS = 1;
 const int ENTITY_HARDNESS = 0;
 
+std::string MARIO_STAND_ANIMATION = "MarSmStand";
+std::string MARIO_RUN_ANIMATION = "MarSmRun";
+std::string MARIO_FALL_ANIMATION = "MarSmJump";
+
 //
 // Ideas:
 // 2. Advanced tile map where we combine AABBs
@@ -41,7 +45,8 @@ const int ENTITY_HARDNESS = 0;
 // 
 
 
-GameScene::GameScene(const std::shared_ptr<TileMap> level) :
+GameScene::GameScene(const Tilemap level) :
+	_render_texture(),
 	_camera(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)),
 	_gui_view(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)),
 	_level(level),
@@ -58,9 +63,12 @@ GameScene::GameScene(const std::shared_ptr<TileMap> level) :
 	entity_manager().register_component<AABB>();
 	entity_manager().register_component<Sensors>();
 	entity_manager().register_component<Mortal>();
+	entity_manager().register_component<ZIndex>();
+	entity_manager().register_component<CTilemapRenderLayer>();
+	entity_manager().register_component<CTilemapParallaxLayer>();
 
 	min_screen_x = _camera.getSize().x / 2.0f;
-	max_screen_x = (float)(_level->width * _level->tile_width) - min_screen_x;
+	max_screen_x = (float)(_level.width * _level.tile_width) - min_screen_x;
 
 	RegisterActionSystem(&GameScene::InputSystem);
 	RegisterFixedUpdateSystem(&GameScene::AISystem);
@@ -77,11 +85,16 @@ GameScene::GameScene(const std::shared_ptr<TileMap> level) :
 
 	RegisterRenderSystem(&GameScene::Render);
 	RegisterRenderGUISystem(&GameScene::DrawGUI);
+	RegisterRenderGUISystem(&GameScene::DrawBuffer);
 }
 
 GameScene::~GameScene() {}
 
 std::optional<SceneError> GameScene::Load(GameManager& gm) {
+	if (!_render_texture.create(256, 240)) {
+		return SceneError("Failed to create render destination");
+	}
+
 	AssetManager& asset_manager = gm.asset_manager();
 
 	auto font = asset_manager.GetFont("Roboto");
@@ -97,11 +110,11 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 		return t1.position.x < t2.position.x;
 	});
 	// Sort such that higher z indices are drawn on top.
-	entity_manager().sort<Sprite>([](const Sprite& t1, const Sprite& t2) {
+	entity_manager().sort<ZIndex>([](const ZIndex& t1, const ZIndex& t2) {
 		return t1.z_index < t2.z_index;
 	});
 
-	auto animation_name = _level->player.fall_animation;
+	auto animation_name = MARIO_FALL_ANIMATION;
 	auto ani_info = asset_manager.GetAnimation(animation_name);
 	auto& tex = std::get<sf::Texture&>(ani_info);
 	auto spconfig = std::get<SpriteAnimationConfig>(ani_info);
@@ -110,15 +123,16 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	entity_manager().add<Mortal>(mario, PLAYER_STARTING_HEALTH);
 	entity_manager().add<Movement>(mario, 0.0f, 0.0f);
 	entity_manager().add<Transform>(mario,
-		(float)(_level->milestones[_milestone_reached].x * _level->tile_width) + item_half,
-		(float)(_level->milestones[_milestone_reached].y * _level->tile_height) + item_half);
+		(float)(_level.milestones[_milestone_reached].x * _level.tile_width) + item_half,
+		(float)(_level.milestones[_milestone_reached].y * _level.tile_height) + item_half);
 	entity_manager().add<AABB>(mario,
-		sf::Vector2f(_level->player.aabb_width, _level->player.aabb_height),
+		sf::Vector2f(_level.player.aabb.width, _level.player.aabb.height),
 		AABB::Material::Solid,
 		1,
 		ENTITY_HARDNESS,
 		PLAYER_SMALL_PIERCE);
 	entity_manager().add<Sensors>(mario);
+	entity_manager().add<ZIndex>(mario, _level.player.layer);
 	entity_manager().add<Sprite>(mario, tex, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h), sf::Vector2f(0.5f, 0.5f), PLAYER_Z_INDEX);
 	entity_manager().add<Animation>(mario,
 		animation_name,
@@ -130,8 +144,8 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	_player = mario;
 
 	// add non-deadly world AABBs
-	float world_w = (float)(_level->width * _level->tile_width);
-	float world_h = (float)(_level->height * _level->tile_height);
+	float world_w = (float)(_level.width * _level.tile_width);
+	float world_h = (float)(_level.height * _level.tile_height);
 	float world_half_w = world_w / 2.0f;
 	float world_half_h = world_h / 2.0f;
 
@@ -147,13 +161,15 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 
 	// add a deadly world AABB at the bottom
 	// or a bunch cause of the optimization to limit searching...
-	for (int i = 0; i < _level->width; i++) {
-		float x = (float)(i * _level->tile_width + (_level->tile_width / 2));
-		float w = (float)_level->tile_width;
+	for (unsigned int i = 0; i < _level.width; i++) {
+		float x = (float)(i * _level.tile_width + (_level.tile_width / 2));
+		float w = (float)_level.tile_width;
 		world_aabbs = entity_manager().entity();
 		entity_manager().add<Transform>(world_aabbs, x, world_h + 1.0f);
 		entity_manager().add<AABB>(world_aabbs, sf::Vector2f(w, 2.0f), AABB::Material::Permeable, 999, 999, 999);
 	}
+
+	generate_components(_level, entity_manager(), gm.asset_manager());
 
 	// colliders that are not solid (lava, victory zones)
 	// and bouncy colliders!
@@ -166,41 +182,41 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	// score
 	// physics
 
-	int total = 0;
-	float x = 0;
-	float y = 0;
-	float tile_width_half = _level->tile_width / 2.0f;
-	float tile_height_half = _level->tile_height / 2.0f;
-	for (auto i : _level->tilemap) {
-		if (i > 0) {
-			auto t = _level->tile_types[i - 1];
+	//int total = 0;
+	//float x = 0;
+	//float y = 0;
+	//float tile_width_half = _level->tile_width / 2.0f;
+	//float tile_height_half = _level->tile_height / 2.0f;
+	//for (auto i : _level->tilemap) {
+	//	if (i > 0) {
+	//		auto t = _level->tile_types[i - 1];
 
-			auto ani_info = asset_manager.GetAnimation(t.animation_name);
-			auto& tex = std::get<sf::Texture&>(ani_info);
-			auto spconfig = std::get<SpriteAnimationConfig>(ani_info);
+	//		auto ani_info = asset_manager.GetAnimation(t.animation_name);
+	//		auto& tex = std::get<sf::Texture&>(ani_info);
+	//		auto spconfig = std::get<SpriteAnimationConfig>(ani_info);
 
-			auto entity = entity_manager().entity();
-			entity_manager().add<Transform>(entity, x + tile_width_half, y + tile_height_half);
-			if (t.aabb_width > 0 && t.aabb_height > 0) {
-				entity_manager().add<AABB>(entity, sf::Vector2f(t.aabb_width, t.aabb_height), AABB::Material::Solid, 0, BLOCK_HARDNESS, 0);
-			}
-			entity_manager().add<Sprite>(entity, tex, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h), sf::Vector2f(0.5f, 0.5f), BACKGROUND_Z_INDEX);
-			entity_manager().add<Animation>(entity,
-				t.animation_name,
-				spconfig,
-				true,
-				"",
-				false
-			);
-		}
+	//		auto entity = entity_manager().entity();
+	//		entity_manager().add<Transform>(entity, x + tile_width_half, y + tile_height_half);
+	//		if (t.aabb_width > 0 && t.aabb_height > 0) {
+	//			entity_manager().add<AABB>(entity, sf::Vector2f(t.aabb_width, t.aabb_height), AABB::Material::Solid, 0, BLOCK_HARDNESS, 0);
+	//		}
+	//		entity_manager().add<Sprite>(entity, tex, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h), sf::Vector2f(0.5f, 0.5f), BACKGROUND_Z_INDEX);
+	//		entity_manager().add<Animation>(entity,
+	//			t.animation_name,
+	//			spconfig,
+	//			true,
+	//			"",
+	//			false
+	//		);
+	//	}
 
-		total++;
-		x += _level->tile_width;
-		if (x >= (_level->width * _level->tile_width)) {
-			x = 0.0f;
-			y += _level->tile_height;
-		}
-	}
+	//	total++;
+	//	x += _level->tile_width;
+	//	if (x >= (_level->width * _level->tile_width)) {
+	//		x = 0.0f;
+	//		y += _level->tile_height;
+	//	}
+	//}
 	entity_manager().finalize_update();
 	return {};
 }
@@ -214,7 +230,7 @@ std::optional<SceneError> GameScene::Unload(GameManager& gm) {
 std::optional<SceneError> GameScene::Show(GameManager& gm) {
 	_fpsclock.restart();
 	gm.SetBackgroundColor(sf::Color(92, 148, 252));
-	gm.SetCamera(_camera);
+	// gm.SetCamera(_camera);
 
 	std::unordered_map<sf::Keyboard::Key, ActionType> actions;
 	actions[sf::Keyboard::Key::Up] = ActionType::UP;
@@ -246,12 +262,12 @@ void GameScene::InputSystem(GameManager& gm, const std::vector<Action>& actions,
 
 	if (action_states.find(ActionType::LEFT)->second == ActionState::START) {
 		if (!s.left) {
-			it.mut<Movement>().velocity.x = -_level->player.horizontal_speed;
+			it.mut<Movement>().velocity.x = -_level.player.run_speed;
 		}
 	}
 	else if (action_states.find(ActionType::RIGHT)->second == ActionState::START) {
 		if (!s.right) {
-			it.mut<Movement>().velocity.x = _level->player.horizontal_speed;
+			it.mut<Movement>().velocity.x = _level.player.run_speed;
 		}
 	}
 	else {
@@ -260,7 +276,7 @@ void GameScene::InputSystem(GameManager& gm, const std::vector<Action>& actions,
 
 	if (action_states.find(ActionType::JUMP)->second == ActionState::START) {
 		if (!s.top && s.bottom) {
-			it.mut<Movement>().velocity.y = -_level->player.jump_speed;
+			it.mut<Movement>().velocity.y = -_level.player.jump_speed;
 		}
 	}
 
@@ -300,8 +316,8 @@ void GameScene::GravitySystem(GameManager& gm) {
 	const Movement& m = it.value<Movement>();
 
 	if (!s.bottom) {
-		if (m.velocity.y < _level->player.terminal_velocity) {
-			it.mut<Movement>().velocity.y = fmin(_level->player.terminal_velocity, m.velocity.y + _level->player.gravity);
+		if (m.velocity.y < _level.player.fall_speed) {
+			it.mut<Movement>().velocity.y = fmin(_level.player.fall_speed, m.velocity.y + _level.gravity);
 		}
 	}
 	else if (m.velocity.y > 0.0f) {
@@ -344,8 +360,8 @@ void GameScene::MovementSystem(GameManager& gm) {
 	}
 
 	const Transform& t = entity_manager().get<Transform>(_player);
-	for (unsigned int i = _milestone_reached; i < _level->milestones.size(); i++) {
-		float mx = (float)(_level->milestones[i].x * _level->tile_width);
+	for (unsigned int i = _milestone_reached; i < _level.milestones.size(); i++) {
+		float mx = (float)(_level.milestones[i].x * _level.tile_width);
 		if (t.position.x > mx) {
 			_milestone_reached = i;
 		}
@@ -614,9 +630,9 @@ void GameScene::DestructionSystem(GameManager& gm) {
 
 				h.health = PLAYER_STARTING_HEALTH;
 				m.velocity.x = 0.0f;
-				m.velocity.y = _level->player.jump_speed;
-				t.position.x = (float)(_level->milestones[_milestone_reached].x * _level->tile_width) + 8.0f;
-				t.position.y = (float)(_level->milestones[_milestone_reached].y * _level->tile_height) + 8.0f;
+				m.velocity.y = _level.player.jump_speed;
+				t.position.x = (float)(_level.milestones[_milestone_reached].x * _level.tile_width) + 8.0f;
+				t.position.y = (float)(_level.milestones[_milestone_reached].y * _level.tile_height) + 8.0f;
 			}
 			else {
 				// TODO: fragment system or items spawner
@@ -650,13 +666,13 @@ void GameScene::SetPlayerAnimationSystem(GameManager& gm) {
 
 	std::string change_animation = "";
 	if (m.velocity.y != 0) {
-		change_animation = _level->player.fall_animation;
+		change_animation = MARIO_FALL_ANIMATION;
 	}
 	else if (m.velocity.x != 0) {
-		change_animation = _level->player.run_animation;
+		change_animation = MARIO_RUN_ANIMATION;
 	}
 	else {
-		change_animation = _level->player.stand_animation;
+		change_animation = MARIO_STAND_ANIMATION;
 	}
 
 	if (change_animation != "" && ani.name != change_animation) {
@@ -697,20 +713,51 @@ void GameScene::AnimationSystem(GameManager& gm) {
 		int x = (actual_frame * (ani.config.w + 1)) + ani.config.x;
 		s.set_rect(sf::FloatRect((float)x, (float)ani.config.y, (float)ani.config.w, (float)ani.config.h));
 	}
+
+	auto cq = entity_manager().query<CTilemapRenderLayer>();
+	for (auto it = cq.begin(); it != cq.end(); ++it) {
+		it.mut<CTilemapRenderLayer>().animate();
+	}
+
+	float camera_left = _camera.getCenter().x - _camera.getSize().x / 2;
+	float camera_top = 0.0f;
+
+	auto ptq = entity_manager().query<CTilemapParallaxLayer, Transform>();
+	for (auto it = ptq.begin(); it != ptq.end(); ++it) {
+		move_parallax_layer(it.mut<Transform>(), it.value<CTilemapParallaxLayer>(), camera_left, camera_top);
+	}
 }
 
 // Render all objects, but not the GUI
 // Components: Position, Animation
 void GameScene::Render(GameManager& gm, sf::RenderWindow& window, int delta_ms) {
+	_render_texture.clear(sf::Color(92, 148, 252));
+
 	const Transform& player_t = entity_manager().get<Transform>(_player);
 	float y = _camera.getCenter().y;
 	float x = fmin(max_screen_x, fmax(min_screen_x, player_t.position.x));
 	_camera.setCenter(x, y);
-	gm.SetCamera(_camera);
+	//gm.SetCamera(_camera);
+	_render_texture.setView(_camera);
 
-	auto stq = entity_manager().query<Sprite, Transform>();
-	for (auto it = stq.begin(); it != stq.end(); ++it) {
-		it.value<Sprite>().render(window, it.value<Transform>().transform());
+	auto sq = entity_manager().query<Sprite>();
+	auto tq = entity_manager().query<CTilemapRenderLayer>();
+
+	auto ztq = entity_manager().query<ZIndex, Transform>();
+	for (auto it = ztq.begin(); it != ztq.end(); ++it) {
+		auto entity = it.entity();
+
+		auto sqit = sq.find(entity);
+		if (sqit != sq.end()) {
+			sqit.value<Sprite>().render(_render_texture, it.value<Transform>().transform());
+			continue;
+		}
+
+		auto tqit = tq.find(entity);
+		if (tqit != tq.end()) {
+			tqit.value<CTilemapRenderLayer>().render(_render_texture, it.value<Transform>().transform());
+			continue;
+		}
 	}
 
 	if (_render_colliders) {
@@ -726,14 +773,15 @@ void GameScene::Render(GameManager& gm, sf::RenderWindow& window, int delta_ms) 
 			}
 			aabb.render_box.setPosition(t.position.x, t.position.y);
 
-			window.draw(aabb.render_box);
+			_render_texture.draw(aabb.render_box);
 		}
 	}
 }
 // Render the GUI if any
 // Components: None, doesn't use entities I don't think.
 void GameScene::DrawGUI(GameManager& gm, sf::RenderWindow& window, int delta_ms) {
-	gm.SetCamera(_gui_view);
+	//gm.SetCamera(_gui_view);
+	_render_texture.setView(_gui_view);
 	_frames++;
 	float s = _fpsclock.getElapsedTime().asSeconds();
 	if (s > 1.0f) {
@@ -746,5 +794,13 @@ void GameScene::DrawGUI(GameManager& gm, sf::RenderWindow& window, int delta_ms)
 		_fps_text.setString(fpsbuilder.str());
 	}
 
-	window.draw(_fps_text);
+	_render_texture.draw(_fps_text);
+}
+
+void GameScene::DrawBuffer(GameManager& gm, sf::RenderWindow& window, int delta_ms) {
+	_render_texture.display();
+	sf::Sprite sprite(_render_texture.getTexture());
+	float x_scale = (float)window.getSize().x / 256.0f;
+	sprite.setScale(x_scale, x_scale);
+	window.draw(sprite);
 }

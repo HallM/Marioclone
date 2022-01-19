@@ -14,7 +14,7 @@ class MenuScene;
 
 class MenuScene : public BaseScene<MenuScene> {
 public:
-	MenuScene(const Levels& level_manager);
+	MenuScene();
 	virtual ~MenuScene();
 
 	virtual std::optional<SceneError> Load(GameManager& gm);
@@ -24,8 +24,6 @@ public:
 	void RenderMenu(GameManager& gm, sf::RenderWindow& window, int last_update);
 
 private:
-	const Levels& _level_manager;
-
 	unsigned int _item_selected;
 	std::vector<sf::Text> _menu_items;
 

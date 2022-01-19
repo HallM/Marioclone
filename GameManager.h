@@ -9,6 +9,7 @@
 
 #include "Action.h"
 #include "AssetManager.h"
+#include "MapManager.h"
 
 // Forward decl to avoid circular references.
 class IScene;
@@ -16,7 +17,7 @@ class IScene;
 class GameManager
 {
 public:
-	GameManager(std::unique_ptr<AssetManager> assets, std::unique_ptr<sf::RenderWindow> window);
+	GameManager(std::unique_ptr<AssetManager> assets, std::unique_ptr<MapManager> maps, std::unique_ptr<sf::RenderWindow> window);
 	~GameManager();
 
 	void Quit();
@@ -33,9 +34,11 @@ public:
 	void RunLoop();
 
 	AssetManager& asset_manager();
+	MapManager& map_manager();
 
 private:
 	std::unique_ptr<AssetManager> _asset_manager;
+	std::unique_ptr<MapManager> _map_manager;
 
 	bool _do_pop;
 	std::optional<std::unique_ptr<IScene>> _to_push;

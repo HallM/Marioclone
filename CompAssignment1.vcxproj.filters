@@ -42,6 +42,9 @@
     <ClCompile Include="GameScene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MapManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Action.h">
@@ -86,6 +89,9 @@
     <ClInclude Include="toml.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MapManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="config.txt">
@@ -97,7 +103,10 @@
     <Text Include="levels.txt">
       <Filter>Resource Files</Filter>
     </Text>
-    <Text Include="map1.txt">
+    <Text Include="level1-1.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="tileset-outdoor.txt">
       <Filter>Resource Files</Filter>
     </Text>
   </ItemGroup>

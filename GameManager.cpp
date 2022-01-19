@@ -5,8 +5,9 @@
 
 const int MS_PER_TICK = 20;
 
-GameManager::GameManager(std::unique_ptr<AssetManager> assets, std::unique_ptr<sf::RenderWindow> window) :
+GameManager::GameManager(std::unique_ptr<AssetManager> assets, std::unique_ptr<MapManager> maps, std::unique_ptr<sf::RenderWindow> window) :
 	_asset_manager(std::move(assets)),
+	_map_manager(std::move(maps)),
 	_window(std::move(window)),
 	_do_pop(false),
 	_to_push(),
@@ -113,7 +114,7 @@ void GameManager::RunLoop() {
 					sf::Clock clk;
 					scene.FixedUpdate(*this);
 					auto el = clk.getElapsedTime().asMicroseconds();
-					std::cout << el << " us\n";
+					// std::cout << el << " us\n";
 					time_remain -= MS_PER_TICK;
 				}
 			}
@@ -154,4 +155,8 @@ void GameManager::RunLoop() {
 
 AssetManager& GameManager::asset_manager() {
 	return *_asset_manager;
+}
+
+MapManager& GameManager::map_manager() {
+	return *_map_manager;
 }

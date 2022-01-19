@@ -9,39 +9,6 @@ Levels::~Levels() {}
 
 std::optional<std::shared_ptr<TileMap>> load_tilemap(std::string path) {
 	std::shared_ptr<TileMap> tmap = std::make_shared<TileMap>();
-	//try {
-	//	toml::table toml_config = toml::parse_file(path);
-
-	//	auto levels = toml_config["levels"].as_array();
-	//	if (!levels) {
-	//		std::cerr << "levels should be a list of toml objects\n";
-	//		return {};
-	//	}
-	//	size_t i = 0;
-	//	for (auto& l : *levels) {
-	//		auto t = l.as_table();
-	//		if (!t) {
-	//			std::cerr << "levels[" << i << "] should be a list of toml objects\n";
-	//			return {};
-	//		}
-
-	//		auto name = (*t)["name"].value<std::string>();
-	//		if (!name || name.value().length() <= 0) {
-	//			std::cerr << "Level " << i << " name should be a string of some length\n";
-	//			return {};
-	//		}
-	//		c.window.width = (unsigned int)w.value();
-
-
-	//		i++;
-	//	}
-
-	//}
-	//catch (const toml::parse_error& err) {
-	//	std::cerr << "Failed to parse level " << path << ":\n" << err << "\n";
-	//	return {};
-	//}
-
 	std::ifstream file_stream(path);
 
 	while (file_stream.good()) {

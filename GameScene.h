@@ -8,11 +8,11 @@
 #include "Action.h"
 #include "BaseScene.h"
 #include "Components.h"
-#include "Levels.h"
+#include "MapManager.h"
 
 class GameScene : public BaseScene<GameScene> {
 public:
-	GameScene(const std::shared_ptr<TileMap> level);
+	GameScene(const Tilemap level);
 	virtual ~GameScene();
 
 	// Loads the level and generates all the entities.
@@ -75,13 +75,14 @@ private:
 	// Render the GUI if any
 	// Components: None, doesn't use entities I don't think.
 	void DrawGUI(GameManager& gm, sf::RenderWindow& window, int delta_ms);
+	// Draws the buffer to the screen.
+	void DrawBuffer(GameManager& gm, sf::RenderWindow& window, int delta_ms);
 
 	MattECS::EntityID _player;
 
-	// this is not an owned pointer, but referenced.
-	// expecting the Levels manager to own it.
-	const std::shared_ptr<TileMap> _level;
+	Tilemap _level;
 
+	sf::RenderTexture _render_texture;
 	sf::View _camera;
 	sf::View _gui_view;
 	float min_screen_x;

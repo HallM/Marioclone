@@ -13,8 +13,8 @@
 #include "Assets.h"
 #include "Config.h"
 #include "AssetManager.h"
-#include "Levels.h"
 #include "GameManager.h"
+#include "MapManager.h"
 #include "MenuScene.h"
 
 int main(int argc, char* argv[]) {
@@ -45,13 +45,19 @@ int main(int argc, char* argv[]) {
 	assets.Load("assets.txt");
 	std::unique_ptr<AssetManager> asset_manager = std::make_unique<AssetManager>(&assets);
 
-	Levels levels;
-	if (!levels.Load("levels.txt")) {
+	//Levels levels;
+	//if (!levels.Load("levels.txt")) {
+	//	return -1;
+	//}
+
+	MapManager maps;
+	if (!maps.load("levels.txt")) {
 		return -1;
 	}
+	std::unique_ptr<MapManager> map_manager = std::make_unique<MapManager>(maps);
 
-	GameManager game(std::move(asset_manager), std::move(window));
-	game.PushScene(std::make_unique<MenuScene>(levels));
+	GameManager game(std::move(asset_manager), std::move(map_manager), std::move(window));
+	game.PushScene(std::make_unique<MenuScene>());
 
 	// This is the main game loop that runs until quit.
 	game.RunLoop();

@@ -1,0 +1,135 @@
+[[font]]
+name = "Roboto"
+path = "fonts/Roboto-Regular.ttf"
+
+[[texture]]
+name = "TileMapSheet"
+path = "assets/tileset.png"
+
+[[texture]]
+name = "MarioSheet"
+path = "assets/mario.png"
+
+# Some map sprites
+[[sprite]]
+name = "Brick"
+texture = "TileMapSheet"
+x = 17
+y = 0
+width = 16
+height = 16
+
+[[sprite]]
+name = "HiddenBrickBG"
+texture = "TileMapSheet"
+x = 34
+y = 0
+width = 16
+height = 16
+
+[[sprite]]
+name = "BillShooter"
+texture = "TileMapSheet"
+x = 119
+y = 0
+width = 16
+height = 48
+
+[[sprite]]
+name = "QBlock"
+texture = "TileMapSheet"
+animation_frames = 3
+animation_ticks = 8
+x = 153
+y = 34
+width = 16
+height = 16
+
+[[sprite]]
+name = "QUsed"
+texture = "TileMapSheet"
+x = 204
+y = 34
+width = 16
+height = 16
+
+[[sprite]]
+name = "Coin"
+texture = "TileMapSheet"
+animation_frames = 3
+animation_ticks = 8
+x = 153
+y = 51
+width = 16
+height = 16
+
+[[sprite]]
+name = "CoinBG"
+texture = "TileMapSheet"
+animation_frames = 3
+animation_ticks = 8
+x = 153
+y = 68
+width = 16
+height = 16
+
+[[sprite]]
+name = "Hammer"
+texture = "TileMapSheet"
+animation_frames = 3
+animation_ticks = 8
+x = 153
+y = 85
+width = 16
+height = 16
+
+# Mario definitions
+[[sprite]]
+name = "MarSmStand"
+texture = "MarioSheet"
+animation_frames = 1
+animation_ticks = 0
+x = 0
+y = 0
+width = 16
+height = 16
+
+[[sprite]]
+name = "MarSmRun"
+texture = "MarioSheet"
+animation_frames = 3
+animation_ticks = 6
+x = 20
+y = 0
+width = 16
+height = 16
+
+[[sprite]]
+name = "MarSmStop"
+texture = "MarioSheet"
+animation_frames = 1
+animation_ticks = 0
+x = 76
+y = 0
+width = 16
+height = 16
+
+[[sprite]]
+name = "MarSmJump"
+texture = "MarioSheet"
+animation_frames = 1
+animation_ticks = 0
+x = 96
+y = 0
+width = 16
+height = 16
+
+[[sprite]]
+name = "MarSmDead"
+texture = "MarioSheet"
+animation_frames = 1
+animation_ticks = 50
+x = 116
+y = 0
+width = 16
+height = 16
