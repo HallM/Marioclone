@@ -10,8 +10,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include "Config.h"
 #include "AssetManager.h"
+#include "Config.h"
+#include "IFileManager.h"
+#include "FstreamFileManager.h"
 #include "GameManager.h"
 #include "MapManager.h"
 #include "MenuScene.h"
@@ -40,17 +42,19 @@ int main(int argc, char* argv[]) {
 	std::unique_ptr<sf::RenderWindow> window = std::make_unique<sf::RenderWindow>(sf::VideoMode(config.window.width, config.window.height, 32), "Not Mario I swear");
 	//window->setFramerateLimit(config.window.framerate);
 
+	std::shared_ptr<IFileManager> file_manager = std::make_shared<FstreamFileManager>();
+
 	std::unique_ptr<AssetManager> asset_manager = std::make_unique<AssetManager>();
-	if (!asset_manager->load_db("assets.txt")) {
+	if (!asset_manager->load_db(file_manager, "assets.txt")) {
 		return -1;
 	}
 
-	std::unique_ptr<MapManager> map_manager = std::make_unique<MapManager>();
+	std::unique_ptr<MapManager> map_manager = std::make_unique<MapManager>(file_manager);
 	if (!map_manager->load("levels.txt")) {
 		return -1;
 	}
 
-	GameManager game(std::move(asset_manager), std::move(map_manager), std::move(window));
+	GameManager game(file_manager, std::move(asset_manager), std::move(map_manager), std::move(window));
 	game.PushScene(std::make_unique<MenuScene>());
 
 	// This is the main game loop that runs until quit.

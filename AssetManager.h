@@ -8,6 +8,8 @@
 
 #include <SFML/Graphics.hpp>
 
+#include "IFileManager.h"
+
 // TODO: freeing unneeded assets from former scenes.
 
 struct FontConfig {
@@ -48,7 +50,7 @@ class AssetManager {
 public:
 	AssetManager();
 
-	bool load_db(std::string path);
+	bool load_db(std::shared_ptr<IFileManager> file_manager, std::string path);
 
 	sf::Font* get_font(std::string font_name);
 	sf::Texture& get_texture(std::string texture_name);

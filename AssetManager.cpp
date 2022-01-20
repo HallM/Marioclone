@@ -62,9 +62,9 @@ AssetManager::AssetManager() {}
 
 
 bool
-AssetManager::load_db(std::string path) {
+AssetManager::load_db(std::shared_ptr<IFileManager> file_manager, std::string path) {
 	try {
-		toml::table config = toml::parse_file(path);
+		toml::table config = toml::parse(file_manager->load_file(path));
 
 		auto& fonts = std::get<std::unordered_map<std::string, FontConfig>>(_db);
 		if (auto arr = config["fonts"].as_array()) {

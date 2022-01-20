@@ -5,7 +5,8 @@
 
 const int MS_PER_TICK = 20;
 
-GameManager::GameManager(std::unique_ptr<AssetManager> assets, std::unique_ptr<MapManager> maps, std::unique_ptr<sf::RenderWindow> window) :
+GameManager::GameManager(std::shared_ptr<IFileManager> file_manager, std::unique_ptr<AssetManager> assets, std::unique_ptr<MapManager> maps, std::unique_ptr<sf::RenderWindow> window) :
+	_file_manager(file_manager),
 	_asset_manager(std::move(assets)),
 	_map_manager(std::move(maps)),
 	_window(std::move(window)),
@@ -151,6 +152,10 @@ void GameManager::RunLoop() {
 			}
 		}
 	}
+}
+
+IFileManager& GameManager::file_manager() {
+	return *_file_manager;
 }
 
 AssetManager& GameManager::asset_manager() {

@@ -89,6 +89,7 @@
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="GameManager.cpp" />
     <ClCompile Include="GameScene.cpp" />
+    <ClCompile Include="FstreamFileManager.cpp" />
     <ClCompile Include="Levels.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MapManager.cpp" />
@@ -111,6 +112,8 @@
     <ClInclude Include="EntityManager.h" />
     <ClInclude Include="GameManager.h" />
     <ClInclude Include="GameScene.h" />
+    <ClInclude Include="IFileManager.h" />
+    <ClInclude Include="FstreamFileManager.h" />
     <ClInclude Include="Levels.h" />
     <ClInclude Include="MapManager.h" />
     <ClInclude Include="MenuScene.h" />

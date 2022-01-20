@@ -57,7 +57,7 @@ generate_components(const Tilemap& tmap, MattECS::EntityManager& em, AssetManage
 }
 
 ElementAABB
-parse_aabb(toml::node_view<toml::node> n) {
+MapManager::parse_aabb(toml::node_view<toml::node> n) {
 	return ElementAABB{
 		n["x"].value_or<float>(0.0f),
 		n["y"].value_or<float>(0.0f),
@@ -67,7 +67,7 @@ parse_aabb(toml::node_view<toml::node> n) {
 }
 
 PlayerConfig
-parse_player(toml::node_view<toml::node> n) {
+MapManager::parse_player(toml::node_view<toml::node> n) {
 	return PlayerConfig{
 		parse_aabb(n["aabb"]),
 		n["run_speed"].value_or<float>(0.0f),
@@ -78,7 +78,7 @@ parse_player(toml::node_view<toml::node> n) {
 }
 
 MilestoneConfig
-parse_milestone(toml::node_view<toml::node> n) {
+MapManager::parse_milestone(toml::node_view<toml::node> n) {
 	return MilestoneConfig{
 		n["x"].value_or<unsigned int>(0),
 		n["y"].value_or<unsigned int>(0)
@@ -86,7 +86,7 @@ parse_milestone(toml::node_view<toml::node> n) {
 }
 
 TileConfig
-parse_tile(toml::node_view<toml::node> n) {
+MapManager::parse_tile(toml::node_view<toml::node> n) {
 	return TileConfig{
 		n["id"].value_or<unsigned int>(0),
 		n["x"].value_or<unsigned int>(0),
@@ -95,7 +95,7 @@ parse_tile(toml::node_view<toml::node> n) {
 }
 
 std::vector<TileConfig>
-parse_tiles(toml::node_view<toml::node> n, unsigned int width, unsigned int height) {
+MapManager::parse_tiles(toml::node_view<toml::node> n, unsigned int width, unsigned int height) {
 	std::vector<TileConfig> tiles;
 
 	if (n.is_array_of_tables()) {
@@ -126,7 +126,7 @@ parse_tiles(toml::node_view<toml::node> n, unsigned int width, unsigned int heig
 }
 
 TileSetTileConfig
-parse_tileset_tile(toml::node_view<toml::node> tile_config) {
+MapManager::parse_tileset_tile(toml::node_view<toml::node> tile_config) {
 	std::string name = tile_config["name"].value_or<std::string>("");
 	unsigned int x = tile_config["x"].value_or<unsigned int>(0);
 	unsigned int y = tile_config["y"].value_or<unsigned int>(0);
@@ -161,7 +161,7 @@ parse_tileset_tile(toml::node_view<toml::node> tile_config) {
 }
 
 TileSetConfig
-parse_tileset(toml::table config) {
+MapManager::parse_tileset(toml::table config) {
 	std::string name = config["name"].value_or<std::string>("");
 	std::string texture = config["texture"].value_or<std::string>("");
 
@@ -177,9 +177,9 @@ parse_tileset(toml::table config) {
 }
 
 std::optional<TileSetConfig>
-load_tilesetfile(std::string path) {
+MapManager::load_tilesetfile(std::string path) {
 	try {
-		toml::table config = toml::parse_file(path);
+		toml::table config = toml::parse(_file_manager->load_file(path));
 		return parse_tileset(config);
 	}
 	catch (const toml::parse_error& err) {
@@ -191,7 +191,7 @@ load_tilesetfile(std::string path) {
 }
 
 LayerConfig
-parse_layer(toml::node_view<toml::node> n, unsigned int width, unsigned int height) {
+MapManager::parse_layer(toml::node_view<toml::node> n, unsigned int width, unsigned int height) {
 	float parallax = n["parallax"].value_or<float>(1.0f);
 	if (parallax <= 0) {
 		parallax = 1.0;
@@ -248,7 +248,7 @@ parse_layer(toml::node_view<toml::node> n, unsigned int width, unsigned int heig
 }
 
 Tilemap
-parse_tilemap(toml::table config) {
+MapManager::parse_tilemap(toml::table config) {
 	float gravity = config["gravity"].value_or<float>(0.0f);
 	unsigned int width = config["width"].value_or<unsigned int>(0);
 	unsigned int height = config["height"].value_or<unsigned int>(0);
@@ -280,12 +280,12 @@ parse_tilemap(toml::table config) {
 	};
 }
 
-MapManager::MapManager() {}
+MapManager::MapManager(std::shared_ptr<IFileManager> file_manager) : _file_manager(file_manager) {}
 
 bool
 MapManager::load(std::string config_path) {
 	try {
-		toml::table toml_config = toml::parse_file(config_path);
+		toml::table toml_config = toml::parse(_file_manager->load_file(config_path));
 
 		auto levels = toml_config["levels"].as_array();
 		if (!levels) {
@@ -328,15 +328,14 @@ MapManager::load(std::string config_path) {
 }
 
 std::optional<Tilemap>
-MapManager::get_level(std::string name) const {
+MapManager::get_level(std::string name) {
 	auto it = _levels.find(name);
 	if (it == _levels.end()) {
 		return {};
 	}
 
 	try {
-
-		toml::table toml_config = toml::parse_file(it->second);
+		toml::table toml_config = toml::parse(_file_manager->load_file(it->second));
 		return parse_tilemap(toml_config);
 	}
 	catch (const toml::parse_error& err) {

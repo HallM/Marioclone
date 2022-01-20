@@ -7,10 +7,12 @@
 #include <vector>
 
 #include <SFML/Graphics.hpp>
+#include "toml.hpp"
 
 #include "AssetManager.h"
 #include "Components.h"
 #include "EntityManager.h"
+#include "IFileManager.h"
 
 struct ElementAABB {
 	float x;
@@ -225,13 +227,25 @@ bool generate_components(const Tilemap& tmap, MattECS::EntityManager& em, AssetM
 
 class MapManager {
 public:
-	MapManager();
+	MapManager(std::shared_ptr<IFileManager> file_manager);
 
 	bool load(std::string config_path);
 
-	std::optional<Tilemap> get_level(std::string name) const;
+	std::optional<Tilemap> get_level(std::string name);
 	std::vector<std::string> get_level_names() const;
 private:
+	std::shared_ptr<IFileManager> _file_manager;
 	// map of level name to path
 	std::unordered_map<std::string, std::string> _levels;
+
+	ElementAABB parse_aabb(toml::node_view<toml::node> n);
+	PlayerConfig parse_player(toml::node_view<toml::node> n);
+	MilestoneConfig parse_milestone(toml::node_view<toml::node> n);
+	TileConfig parse_tile(toml::node_view<toml::node> n);
+	std::vector<TileConfig> parse_tiles(toml::node_view<toml::node> n, unsigned int width, unsigned int height);
+	TileSetTileConfig parse_tileset_tile(toml::node_view<toml::node> tile_config);
+	TileSetConfig parse_tileset(toml::table config);
+	std::optional<TileSetConfig> load_tilesetfile(std::string path);
+	LayerConfig parse_layer(toml::node_view<toml::node> n, unsigned int width, unsigned int height);
+	Tilemap parse_tilemap(toml::table config);
 };
