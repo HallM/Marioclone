@@ -41,9 +41,10 @@ int main(int argc, char* argv[]) {
 	std::unique_ptr<sf::RenderWindow> window = std::make_unique<sf::RenderWindow>(sf::VideoMode(config.window.width, config.window.height, 32), "Not Mario I swear");
 	//window->setFramerateLimit(config.window.framerate);
 
-	Assets assets;
-	assets.Load("assets.txt");
-	std::unique_ptr<AssetManager> asset_manager = std::make_unique<AssetManager>(&assets);
+	AssetsDB assets;
+	assets.load("assets.txt");
+	std::unique_ptr<AssetsDB> asset_db = std::make_unique<AssetsDB>(assets);
+	std::unique_ptr<AssetManager> asset_manager = std::make_unique<AssetManager>(std::move(asset_db));
 
 	//Levels levels;
 	//if (!levels.Load("levels.txt")) {

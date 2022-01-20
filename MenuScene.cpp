@@ -15,7 +15,7 @@ MenuScene::~MenuScene() {}
 std::optional<SceneError> MenuScene::Load(GameManager& gm) {
 	gm.SetBackgroundColor(sf::Color::Black);
 
-	auto font = gm.asset_manager().GetFont("Roboto");
+	auto font = gm.asset_manager().get_font("Roboto");
 
 	for (const auto& level_name : gm.map_manager().get_level_names()) {
 		sf::Text t(level_name, *font, 24);

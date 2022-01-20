@@ -6,11 +6,6 @@
 #include "AssetManager.h"
 #include "EntityManager.h"
 
-const int BACKGROUND_Z_INDEX = 1;
-const int PLAYER_Z_INDEX = 2;
-const int OTHER_DYN_Z_INDEX = 3;
-const int LAYERED_Z_INDEX = 4;
-
 const int PLAYER_STARTING_HEALTH = 1;
 const int PLAYER_SMALL_PIERCE = 0;
 const int PLAYER_BIG_PIERCE = 1;
@@ -18,9 +13,10 @@ const int PLAYER_BIG_PIERCE = 1;
 const int BLOCK_HARDNESS = 1;
 const int ENTITY_HARDNESS = 0;
 
-std::string MARIO_STAND_ANIMATION = "MarSmStand";
-std::string MARIO_RUN_ANIMATION = "MarSmRun";
-std::string MARIO_FALL_ANIMATION = "MarSmJump";
+std::string MARIO_SPRITESHEET = "MarioSmall";
+std::string MARIO_STAND_ANIMATION = "Stand";
+std::string MARIO_RUN_ANIMATION = "Run";
+std::string MARIO_FALL_ANIMATION = "Jump";
 
 //
 // Ideas:
@@ -43,7 +39,6 @@ std::string MARIO_FALL_ANIMATION = "MarSmJump";
 // 
 // make the AABB material system expandable
 // 
-
 
 GameScene::GameScene(const Tilemap level) :
 	_render_texture(),
@@ -97,7 +92,7 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 
 	AssetManager& asset_manager = gm.asset_manager();
 
-	auto font = asset_manager.GetFont("Roboto");
+	auto font = asset_manager.get_font("Roboto");
 	_fps_text = sf::Text("0 fps", *font, 16);
 	_fps_text.setPosition(200.0f, 5.0f);
 
@@ -115,9 +110,8 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	});
 
 	auto animation_name = MARIO_FALL_ANIMATION;
-	auto ani_info = asset_manager.GetAnimation(animation_name);
-	auto& tex = std::get<sf::Texture&>(ani_info);
-	auto spconfig = std::get<SpriteAnimationConfig>(ani_info);
+	auto& tex = asset_manager.get_spritesheet_texture(MARIO_SPRITESHEET);
+	auto spconfig = asset_manager.get_spritesheet_entry(MARIO_SPRITESHEET, animation_name);
 
 	auto mario = entity_manager().entity();
 	entity_manager().add<Mortal>(mario, PLAYER_STARTING_HEALTH);
@@ -133,7 +127,7 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 		PLAYER_SMALL_PIERCE);
 	entity_manager().add<Sensors>(mario);
 	entity_manager().add<ZIndex>(mario, _level.player.layer);
-	entity_manager().add<Sprite>(mario, tex, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h), sf::Vector2f(0.5f, 0.5f), PLAYER_Z_INDEX);
+	entity_manager().add<Sprite>(mario, tex, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.width, (float)spconfig.height), sf::Vector2f(0.5f, 0.5f));
 	entity_manager().add<Animation>(mario,
 		animation_name,
 		spconfig,
@@ -182,41 +176,6 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	// score
 	// physics
 
-	//int total = 0;
-	//float x = 0;
-	//float y = 0;
-	//float tile_width_half = _level->tile_width / 2.0f;
-	//float tile_height_half = _level->tile_height / 2.0f;
-	//for (auto i : _level->tilemap) {
-	//	if (i > 0) {
-	//		auto t = _level->tile_types[i - 1];
-
-	//		auto ani_info = asset_manager.GetAnimation(t.animation_name);
-	//		auto& tex = std::get<sf::Texture&>(ani_info);
-	//		auto spconfig = std::get<SpriteAnimationConfig>(ani_info);
-
-	//		auto entity = entity_manager().entity();
-	//		entity_manager().add<Transform>(entity, x + tile_width_half, y + tile_height_half);
-	//		if (t.aabb_width > 0 && t.aabb_height > 0) {
-	//			entity_manager().add<AABB>(entity, sf::Vector2f(t.aabb_width, t.aabb_height), AABB::Material::Solid, 0, BLOCK_HARDNESS, 0);
-	//		}
-	//		entity_manager().add<Sprite>(entity, tex, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h), sf::Vector2f(0.5f, 0.5f), BACKGROUND_Z_INDEX);
-	//		entity_manager().add<Animation>(entity,
-	//			t.animation_name,
-	//			spconfig,
-	//			true,
-	//			"",
-	//			false
-	//		);
-	//	}
-
-	//	total++;
-	//	x += _level->tile_width;
-	//	if (x >= (_level->width * _level->tile_width)) {
-	//		x = 0.0f;
-	//		y += _level->tile_height;
-	//	}
-	//}
 	entity_manager().finalize_update();
 	return {};
 }
@@ -676,15 +635,12 @@ void GameScene::SetPlayerAnimationSystem(GameManager& gm) {
 	}
 
 	if (change_animation != "" && ani.name != change_animation) {
-		auto ani_info = gm.asset_manager().GetAnimation(change_animation);
-		auto& tex = std::get<sf::Texture&>(ani_info);
-		auto spconfig = std::get<SpriteAnimationConfig>(ani_info);
+		auto spconfig = gm.asset_manager().get_spritesheet_entry(MARIO_SPRITESHEET, change_animation);
 
 		Animation& ani = it.mut<Animation>();
 		Sprite& s = it.mut<Sprite>();
 
-		s.t = &tex;
-		s.set_rect(sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.w, (float)spconfig.h));
+		s.set_rect(sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.width, (float)spconfig.height));
 		ani.config = spconfig;
 		ani.current_frame = 0;
 		ani.destroyAfter = false;
@@ -698,20 +654,20 @@ void GameScene::SetPlayerAnimationSystem(GameManager& gm) {
 void GameScene::AnimationSystem(GameManager& gm) {
 	auto asq = entity_manager().query<Animation, Sprite>();
 	for (auto it = asq.begin(); it != asq.end(); ++it) {
-		if (it.value<Animation>().config.total_frames <= 1) {
+		if (it.value<Animation>().config.animation_frames <= 1) {
 			continue;
 		}
 		Animation& ani = it.mut<Animation>();
 		Sprite& s = it.mut<Sprite>();
 		ani.current_frame++;
-		auto actual_frame = ani.current_frame / ani.config.frame_ticks;
-		if (actual_frame >= ani.config.total_frames) {
+		auto actual_frame = ani.current_frame / ani.config.animation_rate;
+		if (actual_frame >= ani.config.animation_frames) {
 			ani.current_frame = 0;
 			actual_frame = 0;
 		}
 
-		int x = (actual_frame * (ani.config.w + 1)) + ani.config.x;
-		s.set_rect(sf::FloatRect((float)x, (float)ani.config.y, (float)ani.config.w, (float)ani.config.h));
+		int x = (actual_frame * (ani.config.width + 1)) + ani.config.x;
+		s.set_rect(sf::FloatRect((float)x, (float)ani.config.y, (float)ani.config.width, (float)ani.config.height));
 	}
 
 	auto cq = entity_manager().query<CTilemapRenderLayer>();

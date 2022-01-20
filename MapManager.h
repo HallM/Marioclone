@@ -39,6 +39,31 @@ struct TileConfig {
 	// events
 };
 
+struct TileSetTileConfig {
+	std::string name;
+	unsigned int x = 0;
+	unsigned int y = 0;
+	unsigned int width = 0;
+	unsigned int height = 0;
+	unsigned int passage = false;
+	// use negative numbers to heal. this is damage per fixed-update!
+	int damage = 0;
+	bool destructable = false;
+	int hardness = 0;
+	int piercing = 0;
+	ElementAABB aabb;
+	// set to 0 or 1 for no animation
+	unsigned int animation_frames = 0;
+	// ticks per frame
+	unsigned int animation_rate = 0;
+};
+
+struct TileSetConfig {
+	std::string name;
+	std::string texture;
+	std::vector<TileSetTileConfig> tiles;
+};
+
 struct LayerConfig {
 	float parallax;
 	// the w/h are computed from w/h of the map * parallax and rounded down

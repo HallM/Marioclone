@@ -16,12 +16,11 @@ struct Sprite {
 	sf::Texture* t;
 	sf::VertexArray va;
 	sf::Vector2f origin;
-	int z_index;
 
-	Sprite() : t(), va(), origin(0.5f, 0.5f), z_index(0) {}
+	Sprite() : t(), va(), origin(0.5f, 0.5f) {}
 	// The origin accepts a 0-1 where 0 is top/left and 1 is bottom/right.
 	// The midpoint is 0.5,0.5.
-	Sprite(sf::Texture& texture, sf::FloatRect texture_rect, sf::Vector2f o, int z) : t(&texture), va(sf::PrimitiveType::TriangleStrip, 4), origin(-o.x * texture_rect.width, -o.y * texture_rect.height), z_index(z) {
+	Sprite(sf::Texture& texture, sf::FloatRect texture_rect, sf::Vector2f o) : t(&texture), va(sf::PrimitiveType::TriangleStrip, 4), origin(-o.x * texture_rect.width, -o.y * texture_rect.height) {
 		set_rect(texture_rect);
 	}
 
@@ -53,7 +52,7 @@ struct Sprite {
 
 struct Animation {
 	std::string name;
-	SpriteAnimationConfig config;
+	SpriteSheetEntryConfig config;
 	unsigned int current_frame;
 	bool loop;
 	std::string next_animation;
@@ -62,7 +61,7 @@ struct Animation {
 	Animation() : name(""), config(), current_frame(0), loop(false), next_animation(""), destroyAfter(true) {}
 	Animation(
 		std::string _name,
-		SpriteAnimationConfig _config,
+		SpriteSheetEntryConfig _config,
 		bool _loop,
 		std::string _next,
 		bool _destroy

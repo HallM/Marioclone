@@ -7,17 +7,19 @@
 #include "Assets.h"
 #include "Components.h"
 
-void move_parallax_layer(Transform& t, const CTilemapParallaxLayer& pl, float camera_x, float camera_y) {
+void
+move_parallax_layer(Transform& t, const CTilemapParallaxLayer& pl, float camera_x, float camera_y) {
 	t.position.x = camera_x - (camera_x * pl.parallax);
 }
 
-bool generate_components(const Tilemap& tmap, MattECS::EntityManager& em, AssetManager& am) {
+bool
+generate_components(const Tilemap& tmap, MattECS::EntityManager& em, AssetManager& am) {
 	for (unsigned int i = 0; i < tmap.layers.size(); i++) {
 		const auto& layer = tmap.layers[i];
 
 		if (layer.tileset.texture.length() > 0) {
 			auto mape = em.entity();
-			sf::Texture& t = am.GetTexture(layer.tileset.texture);
+			sf::Texture& t = am.get_texture(layer.tileset.texture);
 			em.add<CTilemapRenderLayer>(mape, tmap, i, t);
 			em.add<Transform>(mape, 0.0f, 0.0f);
 			em.add<ZIndex>(mape, i);
@@ -124,6 +126,71 @@ parse_tiles(toml::node_view<toml::node> n, unsigned int width, unsigned int heig
 	return tiles;
 }
 
+TileSetTileConfig
+parse_tileset_tile(toml::node_view<toml::node> tile_config) {
+	std::string name = tile_config["name"].value_or<std::string>("");
+	unsigned int x = tile_config["x"].value_or<unsigned int>(0);
+	unsigned int y = tile_config["y"].value_or<unsigned int>(0);
+	unsigned int width = tile_config["width"].value_or<unsigned int>(0);
+	unsigned int height = tile_config["height"].value_or<unsigned int>(0);
+	unsigned int passage = tile_config["passage"].value_or<bool>(false);
+	int damage = tile_config["damage"].value_or<int>(0);
+	bool destructable = false;
+	int hardness = tile_config["hardness"].value_or<int>(0);
+	int piercing = tile_config["piercing"].value_or<int>(0);
+	ElementAABB aabb = parse_aabb(tile_config["piercing"]);
+	unsigned int animation_frames = tile_config["animation_frames"].value_or<unsigned int>(0);
+	unsigned int animation_rate = tile_config["animation_rate"].value_or<unsigned int>(0);
+
+	if (!passage || damage != 0 || destructable) {
+		if (aabb.width == 0) {
+			aabb.width = (float)width;
+		}
+		if (aabb.height == 0) {
+			aabb.height = (float)height;
+		}
+	}
+
+	return TileSetTileConfig{
+		name,
+		x, y, width, height,
+		passage,
+		damage, destructable, hardness, piercing,
+		aabb,
+		animation_frames, animation_rate
+	};
+}
+
+TileSetConfig
+parse_tileset(toml::table config) {
+	std::string name = config["name"].value_or<std::string>("");
+	std::string texture = config["texture"].value_or<std::string>("");
+
+	TileSetConfig c = { name, texture, {} };
+
+	if (auto arr = config["tiles"].as_array()) {
+		for (auto& element : *arr) {
+			auto node = toml::node_view<toml::node>(element);
+			c.tiles.push_back(parse_tileset_tile(node));
+		}
+	}
+	return c;
+}
+
+std::optional<TileSetConfig>
+load_tilesetfile(std::string path) {
+	try {
+		toml::table config = toml::parse_file(path);
+		return parse_tileset(config);
+	}
+	catch (const toml::parse_error& err) {
+		std::cerr << "Failed to parse tileset " << path << ":\n" << err << "\n";
+		return {};
+	}
+
+	return {};
+}
+
 LayerConfig
 parse_layer(toml::node_view<toml::node> n, unsigned int width, unsigned int height) {
 	float parallax = n["parallax"].value_or<float>(1.0f);
@@ -134,7 +201,7 @@ parse_layer(toml::node_view<toml::node> n, unsigned int width, unsigned int heig
 	TileSetConfig tsc;
 	std::string tileset_path = n["tileset"].value_or<std::string>("");
 	if (tileset_path.length() > 0) {
-		tsc = LoadTileSet(tileset_path).value();
+		tsc = load_tilesetfile(tileset_path).value();
 	}
 
 	// for each halving of parallax, we do w - w/4

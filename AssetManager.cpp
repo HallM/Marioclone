@@ -2,17 +2,16 @@
 
 #include <iostream>
 
-AssetManager::AssetManager(Assets* config) {
-	_config = config;
-}
+AssetManager::AssetManager(std::unique_ptr<AssetsDB> db) : _db(std::move(db)) {}
 
-sf::Font* AssetManager::GetFont(std::string font_name) {
+sf::Font*
+AssetManager::get_font(std::string font_name) {
 	auto maybe = _fonts.find(font_name);
 	if (maybe != _fonts.end()) {
 		return &maybe->second;
 	}
 
-	auto asset = _config->GetFont(font_name);
+	auto asset = _db->get<FontConfig>(font_name);
 	// I know... null ptr. terrible.
 	if (!asset.has_value()) {
 		return nullptr;
@@ -24,13 +23,13 @@ sf::Font* AssetManager::GetFont(std::string font_name) {
 	return &_fonts[font_name];
 }
 
-sf::Texture& AssetManager::GetTexture(std::string texture_name) {
+sf::Texture& AssetManager::get_texture(std::string texture_name) {
 	auto maybe = _textures.find(texture_name);
 	if (maybe != _textures.end()) {
 		return maybe->second;
 	}
 
-	auto asset = _config->GetTexture(texture_name).value();
+	auto asset = _db->get<TextureConfig>(texture_name).value();
 
 	_textures.emplace(std::piecewise_construct,
 		std::forward_as_tuple(texture_name),
@@ -41,10 +40,14 @@ sf::Texture& AssetManager::GetTexture(std::string texture_name) {
 	return _textures[texture_name];
 }
 
-// Creates an animation component and sets up the sprite to use it.
-// Does not add it to the entity though.
-std::tuple<SpriteAnimationConfig, sf::Texture&> AssetManager::GetAnimation(std::string animation) {
-	auto sac = _config->GetAnimatedSprite(animation).value();
-	sf::Texture& texture = GetTexture(sac.texture);
-	return {sac, texture};
+sf::Texture&
+AssetManager::get_spritesheet_texture(std::string spritesheet) {
+	auto asset = _db->get<SpriteSheetConfig>(spritesheet).value();
+	return get_texture(asset.texture);
+}
+
+SpriteSheetEntryConfig
+AssetManager::get_spritesheet_entry(std::string spritesheet, std::string entry) {
+	auto asset = _db->get<SpriteSheetConfig>(spritesheet).value();
+	return asset.entries[entry];
 }
