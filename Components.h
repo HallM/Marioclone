@@ -4,7 +4,7 @@
 
 #include <SFML/Graphics.hpp>
 
-#include "Assets.h"
+#include "AssetManager.h"
 
 struct ZIndex {
 	int z_index;

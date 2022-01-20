@@ -10,7 +10,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "Assets.h"
 #include "Config.h"
 #include "AssetManager.h"
 #include "GameManager.h"
@@ -41,21 +40,15 @@ int main(int argc, char* argv[]) {
 	std::unique_ptr<sf::RenderWindow> window = std::make_unique<sf::RenderWindow>(sf::VideoMode(config.window.width, config.window.height, 32), "Not Mario I swear");
 	//window->setFramerateLimit(config.window.framerate);
 
-	AssetsDB assets;
-	assets.load("assets.txt");
-	std::unique_ptr<AssetsDB> asset_db = std::make_unique<AssetsDB>(assets);
-	std::unique_ptr<AssetManager> asset_manager = std::make_unique<AssetManager>(std::move(asset_db));
-
-	//Levels levels;
-	//if (!levels.Load("levels.txt")) {
-	//	return -1;
-	//}
-
-	MapManager maps;
-	if (!maps.load("levels.txt")) {
+	std::unique_ptr<AssetManager> asset_manager = std::make_unique<AssetManager>();
+	if (!asset_manager->load_db("assets.txt")) {
 		return -1;
 	}
-	std::unique_ptr<MapManager> map_manager = std::make_unique<MapManager>(maps);
+
+	std::unique_ptr<MapManager> map_manager = std::make_unique<MapManager>();
+	if (!map_manager->load("levels.txt")) {
+		return -1;
+	}
 
 	GameManager game(std::move(asset_manager), std::move(map_manager), std::move(window));
 	game.PushScene(std::make_unique<MenuScene>());

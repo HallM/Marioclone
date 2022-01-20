@@ -4,7 +4,6 @@
 
 #include "toml.hpp"
 
-#include "Assets.h"
 #include "Components.h"
 
 void

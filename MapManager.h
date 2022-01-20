@@ -8,8 +8,8 @@
 
 #include <SFML/Graphics.hpp>
 
-#include "Assets.h"
 #include "AssetManager.h"
+#include "Components.h"
 #include "EntityManager.h"
 
 struct ElementAABB {
