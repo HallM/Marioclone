@@ -1,0 +1,11 @@
+let coins: mut s32
+
+fn onCollide(event: mut ref OnCollisionEvent) {
+	print_s32(coins)
+
+	if coins <= 0 {
+		return void
+	}
+
+	coins -= 1
+}

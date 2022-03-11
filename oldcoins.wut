@@ -1,0 +1,33 @@
+let coins: mut s32
+
+// OnCollideEvent:
+// entityManager: mut ref EntityManager
+// scene: mut ref GameScene
+// myID: EntityID
+// myAABB: ref AABB
+// myTransform: ref Transform
+// collidedID: EntityID
+// collidedAABB: ref AABB
+// collidedTransform: ref Transform
+
+fn onCollide(event: mut ref OnCollisionEvent) {
+	print_s32(coins)
+
+	if coins <= 0 {
+		return
+	}
+
+//	let enemyvel: Vec2f = GetMovement(em, collidedwith).velocity
+
+	// do nothing if the enemy velocity is moving down or standing
+//	if enemyvel.y >= 0 {
+//		return
+//	}
+//	// same if the enemy is above the item
+//	if (collidedTransform.position.y - 5.0) < (myTransform.position.y + myAABB.size.y) {
+//		return
+//	}
+
+	coins -= 1
+//	AddCoin(scene, 1)
+}

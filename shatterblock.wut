@@ -1,0 +1,5 @@
+
+fn onCollide(event: mut ref OnCollisionEvent) {
+	print_f32(event.myTransform.pos.x)
+	print_transform(event)
+}

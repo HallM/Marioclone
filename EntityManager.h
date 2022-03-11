@@ -374,6 +374,15 @@ namespace MattECS {
 			return c->cvalue(id);
 		}
 
+		template <typename C>
+		const std::optional<const C*> tryGet(EntityID id) {
+			auto c = _manager<C>();
+			if (c->has(id)) {
+				return &c->cvalue(id);
+			}
+			return {};
+		}
+
 		template <typename C, typename... Args>
 		void add(EntityID id, Args&&... args) {
 			auto c = _manager<C>();

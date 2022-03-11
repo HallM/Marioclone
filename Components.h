@@ -1,8 +1,14 @@
 #pragma once
 
+#include <functional>
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 #include <SFML/Graphics.hpp>
+#include "../Scriptlang/Program.h"
+#include "../Scriptlang/VM.h"
+#include "../Scriptlang/VMStack.h"
 
 #include "AssetManager.h"
 

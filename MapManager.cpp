@@ -85,12 +85,44 @@ MapManager::parse_milestone(toml::node_view<toml::node> n) {
 	};
 }
 
+TileEvent
+MapManager::parse_tileevent(toml::node_view<toml::node> n) {
+	std::unordered_map<std::string, std::variant<float,int>> vars;
+	if (auto varconfig = n["vars"].as_table()) {
+		for (auto it = varconfig->begin(); it != varconfig->end(); it++) {
+			std::string key(it->first.str());
+			if (it->second.is_floating_point()) {
+				vars[key] = it->second.value_or<float>(0.0f);
+			}
+			else {
+				vars[key] = it->second.value_or<int>(0);
+			}
+		
+		}
+	}
+	return TileEvent{
+		n["script"].value_or<std::string>(""),
+		vars
+	};
+}
+
 TileConfig
 MapManager::parse_tile(toml::node_view<toml::node> n) {
+	std::vector<TileEvent> events;
+	if (n["events"].is_array_of_tables()) {
+		if (auto arr = n["events"].as_array()) {
+			for (auto& v : *arr) {
+				auto node = toml::node_view<toml::node>(v);
+				events.push_back(parse_tileevent(node));
+			}
+		}
+	}
+
 	return TileConfig{
 		n["id"].value_or<unsigned int>(0),
 		n["x"].value_or<unsigned int>(0),
-		n["y"].value_or<unsigned int>(0)
+		n["y"].value_or<unsigned int>(0),
+		events
 	};
 }
 

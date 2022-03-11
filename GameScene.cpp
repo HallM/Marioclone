@@ -1,7 +1,12 @@
 #include "GameScene.h"
 
 #include <cmath>
+#include <fstream>
+#include <iostream>
 #include <sstream>
+
+#include "../Scriptlang/Program.h"
+#include "../Scriptlang/Compiler.h"
 
 #include "AssetManager.h"
 #include "EntityManager.h"
@@ -40,6 +45,45 @@ std::string MARIO_FALL_ANIMATION = "Jump";
 // make the AABB material system expandable
 // 
 
+void print_f32(float x) {
+    std::cout << "f32: ";
+    std::cout << x << "\n";
+}
+void print_s32(int x) {
+    std::cout << "s32: ";
+    std::cout << x << "\n";
+}
+
+struct OnCollisionEvent {
+	const AABB* myAABB;
+	const Transform* myTransform;
+	const AABB* collidedAABB;
+	const Transform* collidedTransform;
+// entityManager: mut ref EntityManager
+// scene: mut ref GameScene
+// myID: EntityID
+// myAABB: ref AABB
+// myTransform: ref Transform
+// collidedID: EntityID
+// collidedAABB: ref AABB
+// collidedTransform: ref Transform
+};
+void print_transform(OnCollisionEvent* t) {
+    std::cout << "transform pos: ";
+    std::cout << size_t(t->myTransform) << " -> ";
+    std::cout << t->myTransform->position.x << " ";
+    std::cout << t->myTransform->position.y << "\n";
+}
+struct OnCollisionHandler {
+	typedef std::function<void(VM&, VMFixedStack&, OnCollisionEvent*)> FHandler;
+
+	std::shared_ptr<Program> script;
+	std::shared_ptr<VMFixedStack> state;
+	FHandler handler;
+	OnCollisionHandler() {}
+	OnCollisionHandler(std::shared_ptr<Program> sc, std::shared_ptr<VMFixedStack> st, FHandler h) : script(sc), state(st), handler(h) {}
+};
+
 GameScene::GameScene(const Tilemap level) :
 	_render_texture(),
 	_camera(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)),
@@ -61,6 +105,7 @@ GameScene::GameScene(const Tilemap level) :
 	entity_manager().register_component<ZIndex>();
 	entity_manager().register_component<CTilemapRenderLayer>();
 	entity_manager().register_component<CTilemapParallaxLayer>();
+	entity_manager().register_component<OnCollisionHandler>();
 
 	min_screen_x = _camera.getSize().x / 2.0f;
 	max_screen_x = (float)(_level.width * _level.tile_width) - min_screen_x;
@@ -81,9 +126,61 @@ GameScene::GameScene(const Tilemap level) :
 	RegisterRenderSystem(&GameScene::Render);
 	RegisterRenderGUISystem(&GameScene::DrawGUI);
 	RegisterRenderGUISystem(&GameScene::DrawBuffer);
+
+	_script_compiler
+		.build_struct<sf::Vector2f>("Vec2f")
+		.add_member<float>("x", offsetof(sf::Vector2f, x))
+		.add_member<float>("y", offsetof(sf::Vector2f, y))
+		.build();
+
+	_script_compiler
+		.build_struct<AABB>("AABB")
+		.add_member<sf::Vector2f>("size", offsetof(AABB, size))
+		.add_member<sf::Vector2f>("half_size", offsetof(AABB, half_size))
+		.add_member<sf::Vector2f>("previous_position", offsetof(AABB, previous_position))
+		.add_member<sf::Vector2f>("previous_velocity", offsetof(AABB, previous_velocity))
+		.build();
+
+	_script_compiler
+		.build_struct<Transform>("Transform")
+		.add_member<sf::Vector2f>("pos", offsetof(Transform, position))
+		.build();
+
+    _script_compiler
+		.build_struct<OnCollisionEvent>("OnCollisionEvent")
+		.add_member<const AABB*>("myAABB", offsetof(OnCollisionEvent, myAABB))
+		.add_member<const Transform*>("myTransform", offsetof(OnCollisionEvent, myTransform))
+		.add_member<const AABB*>("collidedAABB", offsetof(OnCollisionEvent, collidedAABB))
+		.add_member<const Transform*>("collidedTransform", offsetof(OnCollisionEvent, collidedTransform))
+		.build();
+
+	_script_compiler.import_method<void,float>("print_f32", print_f32);
+	_script_compiler.import_method<void,int>("print_s32", print_s32);
+	_script_compiler.import_method<void,OnCollisionEvent*>("print_transform", print_transform);
+
+	_script_vm = std::make_shared<VM>(VMSTACK_PAGE_SIZE);
 }
 
 GameScene::~GameScene() {}
+
+std::shared_ptr<Program> GameScene::GetScript(std::string name) {
+	auto f = _cached_scripts.find(name);
+	if (f != _cached_scripts.end()) {
+		return f->second;
+	}
+
+    std::ifstream infile(name);
+    std::string contents(
+        (std::istreambuf_iterator<char>(infile)),
+        (std::istreambuf_iterator<char>())
+    );
+	std::cout << "Compile " << name << "\n";
+	std::cout << contents << "\n";
+
+	auto prog = _script_compiler.compile(name, contents);
+	_cached_scripts[name] = prog;
+	return prog;
+}
 
 std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	if (!_render_texture.create(256, 240)) {
@@ -163,7 +260,68 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 		entity_manager().add<AABB>(world_aabbs, sf::Vector2f(w, 2.0f), AABB::Material::Permeable, 999, 999, 999);
 	}
 
-	generate_components(_level, entity_manager(), gm.asset_manager());
+	// generate_components(_level, entity_manager(), gm.asset_manager());
+	for (unsigned int i = 0; i < _level.layers.size(); i++) {
+		const auto& layer = _level.layers[i];
+
+		if (layer.tileset.texture.length() > 0) {
+			auto mape = entity_manager().entity();
+			sf::Texture& t = gm.asset_manager().get_texture(layer.tileset.texture);
+			entity_manager().add<CTilemapRenderLayer>(mape, _level, i, t);
+			entity_manager().add<Transform>(mape, 0.0f, 0.0f);
+			entity_manager().add<ZIndex>(mape, i);
+			if (layer.parallax != 1.0f) {
+				entity_manager().add<CTilemapParallaxLayer>(mape, layer.parallax);
+			}
+		}
+
+		float half_w = (float)_level.tile_width / 2.0f;
+		float half_h = (float)_level.tile_height / 2.0f;
+
+		// add AABBs
+		for (const auto& tile : layer.tiles) {
+			if (tile.id <= 0) {
+				continue;
+			}
+			const auto& tile_info = layer.tileset.tiles[tile.id - 1];
+			if (tile_info.aabb.width > 0 && tile_info.aabb.height > 0) {
+				AABB::Material m;
+				if (tile_info.passage) {
+					m = AABB::Material::Permeable;
+				}
+				else {
+					m = AABB::Material::Solid;
+				}
+				auto e = entity_manager().entity();
+				entity_manager().add<Transform>(e, (float)(tile.x * _level.tile_width) + half_w, (float)(tile.y * _level.tile_height) + half_h);
+				entity_manager().add<AABB>(
+					e,
+					sf::Vector2f(tile_info.aabb.width, tile_info.aabb.height),
+					m, tile_info.damage, tile_info.hardness, tile_info.piercing);
+				if (tile.events.size() > 0) {
+					std::shared_ptr<Program> script = GetScript(tile.events[0].script);
+					auto handler = script->method<void,OnCollisionEvent*>("onCollide");
+					std::shared_ptr<VMFixedStack> state = script->generate_state();
+					for (auto it : tile.events[0].vars) {
+						if (std::holds_alternative<int>(it.second)) {
+					        auto address = script->get_global_address(it.first);
+							*state->at<int>(address) = std::get<int>(it.second);
+						}
+						else if (std::holds_alternative<float>(it.second)) {
+					        auto address = script->get_global_address(it.first);
+							*state->at<float>(address) = std::get<float>(it.second);
+						}
+					}
+
+					std::cout << "Add handler " << tile.events[0].script << " for " << e << "\n";
+					entity_manager().add<OnCollisionHandler>(
+						e,
+						script, state, handler
+					);
+				}
+			}
+		}
+	}
 
 	// colliders that are not solid (lava, victory zones)
 	// and bouncy colliders!
@@ -402,6 +560,19 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 			if (has_overlap) {
 				it.mut<AABB>().collision = true;
 				it2.mut<AABB>().collision = true;
+
+				if (auto maybehandler = entity_manager().tryGet<OnCollisionHandler>(e1)) {
+					auto handler = maybehandler.value();
+					OnCollisionEvent evt = {&aabb1, &t1, &aabb2, &t2};
+					std::cout << "adding pos " << size_t(&t1) << " | " << size_t(&evt) << "\n";
+					handler->handler(*_script_vm, *handler->state, &evt);
+				}
+				if (auto maybehandler = entity_manager().tryGet<OnCollisionHandler>(e2)) {
+					auto handler = maybehandler.value();
+					OnCollisionEvent evt = {&aabb2, &t2, &aabb1, &t1};
+					std::cout << "adding pos " << size_t(&t2) << " | " << size_t(&evt) << "\n";
+					handler->handler(*_script_vm, *handler->state, &evt);
+				}
 
 				auto mmit1 = mmq.find(e1);
 				bool is_dynamic1 = mmit1.has<Movement>();

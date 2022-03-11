@@ -19,31 +19,6 @@ y = 10
 x = 20
 y = 10
 
-[scripts.fragment]
-do = [
-	# fragments assume the same ID, or could specify
-	"SpawnFragments",
-	"Destroy"
-]
-
-[scripts.questioncoin]
-do = [
-	# assume one coin
-	"AddCoin",
-	# Remove all scripts
-	"RemoveScripts",
-	{ type = "SwapTile", newid = 37 }
-]
-
-[scripts.multicoinblock]
-initparams = ["maxcoins"]
-vars = ["hits"]
-do = [
-	# assume one coin
-	"AddCoin",
-	{ type = "If", cond = "hits >= maxcoins", then = ["RemoveScripts", { type = "SwapType", newid = 37 }] }
-]
-
 # BG / parallax layer 1
 [[layers]]
 tileset = "tileset-outdoor.txt"
@@ -127,9 +102,9 @@ x = 8
 y = 7
 
 [[layers.tiles.events]]
-on = "CollideBelow"
-run = "multicoinblock"
-params = { maxcoins = 5 }
+script = "coinblock.wut"
+vars = { coins = 5 }
+events = ["collide"]
 
 [[layers.tiles]]
 id = 2
@@ -137,8 +112,8 @@ x = 4
 y = 10
 
 [[layers.tiles.events]]
-on = "CollideBelow"
-run = "fragment"
+script = "shatterblock.wut"
+events = ["collide"]
 
 [[layers.tiles]]
 id = 2
@@ -146,8 +121,8 @@ x = 6
 y = 10
 
 [[layers.tiles.events]]
-on = "CollideBelow"
-run = "fragment"
+script = "shatterblock.wut"
+events = ["collide"]
 
 [[layers.tiles]]
 id = 2
@@ -155,8 +130,8 @@ x = 8
 y = 10
 
 [[layers.tiles.events]]
-on = "CollideBelow"
-run = "fragment"
+script = "shatterblock.wut"
+events = ["collide"]
 
 [[layers.tiles]]
 id = 2
@@ -164,8 +139,8 @@ x = 10
 y = 10
 
 [[layers.tiles.events]]
-on = "CollideBelow"
-run = "fragment"
+script = "shatterblock.wut"
+events = ["collide"]
 
 
 [[layers.tiles]]
@@ -174,8 +149,9 @@ x = 7
 y = 10
 
 [[layers.tiles.events]]
-on = "CollideBelow"
-run = "questioncoin"
+script = "coinblock.wut"
+vars = { coins = 1 }
+events = ["collide"]
 
 [[layers.tiles]]
 id = 36
@@ -183,5 +159,6 @@ x = 9
 y = 10
 
 [[layers.tiles.events]]
-on = "CollideBelow"
-run = "questioncoin"
+script = "coinblock.wut"
+vars = { coins = 1 }
+events = ["collide"]

@@ -5,6 +5,10 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../Scriptlang/Program.h"
+#include "../Scriptlang/Compiler.h"
+#include "../Scriptlang/VMStack.h"
+
 #include "Action.h"
 #include "BaseScene.h"
 #include "Components.h"
@@ -78,6 +82,11 @@ private:
 	// Draws the buffer to the screen.
 	void DrawBuffer(GameManager& gm, sf::RenderWindow& window, int delta_ms);
 
+	std::shared_ptr<Program> GetScript(std::string name);
+	MattScript::Compiler _script_compiler;
+	std::unordered_map<std::string, std::shared_ptr<Program>> _cached_scripts;
+	std::shared_ptr<VM> _script_vm;
+	
 	MattECS::EntityID _player;
 
 	Tilemap _level;

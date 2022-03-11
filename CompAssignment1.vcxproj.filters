@@ -45,6 +45,9 @@
     <ClCompile Include="FstreamFileManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ScriptManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Action.h">
@@ -95,6 +98,9 @@
     <ClInclude Include="FstreamFileManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ScriptManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="config.txt">
@@ -112,5 +118,16 @@
     <Text Include="tileset-outdoor.txt">
       <Filter>Resource Files</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="coinblock.wut">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shatterblock.wut">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="oldcoins.wut">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

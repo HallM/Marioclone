@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include <SFML/Graphics.hpp>
@@ -34,11 +35,16 @@ struct MilestoneConfig {
 	unsigned int y;
 };
 
+struct TileEvent {
+	std::string script;
+	std::unordered_map<std::string, std::variant<float,int>> vars;
+};
+
 struct TileConfig {
 	unsigned int id;
 	unsigned int x;
 	unsigned int y;
-	// events
+	std::vector<TileEvent> events;
 };
 
 struct TileSetTileConfig {
@@ -243,6 +249,7 @@ private:
 	MilestoneConfig parse_milestone(toml::node_view<toml::node> n);
 	TileConfig parse_tile(toml::node_view<toml::node> n);
 	std::vector<TileConfig> parse_tiles(toml::node_view<toml::node> n, unsigned int width, unsigned int height);
+	TileEvent parse_tileevent(toml::node_view<toml::node> n);
 	TileSetTileConfig parse_tileset_tile(toml::node_view<toml::node> tile_config);
 	TileSetConfig parse_tileset(toml::table config);
 	std::optional<TileSetConfig> load_tilesetfile(std::string path);
