@@ -106,27 +106,27 @@
     <Text Include="config.txt">
       <Filter>Resource Files</Filter>
     </Text>
-    <Text Include="assets.txt">
+    <Text Include="assets/assets.txt">
       <Filter>Resource Files</Filter>
     </Text>
-    <Text Include="levels.txt">
+    <Text Include="maps/level1-1.txt">
       <Filter>Resource Files</Filter>
     </Text>
-    <Text Include="level1-1.txt">
+    <Text Include="maps/levels.txt">
       <Filter>Resource Files</Filter>
     </Text>
-    <Text Include="tileset-outdoor.txt">
+    <Text Include="maps/tileset-outdoor.txt">
       <Filter>Resource Files</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <None Include="coinblock.wut">
+    <None Include="scripts/coinblock.wut">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="shatterblock.wut">
+    <None Include="scripts/oldcoins.wut">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="oldcoins.wut">
+    <None Include="scripts/shatterblock.wut">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

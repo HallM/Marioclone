@@ -45,12 +45,12 @@ int main(int argc, char* argv[]) {
 	std::shared_ptr<IFileManager> file_manager = std::make_shared<FstreamFileManager>();
 
 	std::unique_ptr<AssetManager> asset_manager = std::make_unique<AssetManager>();
-	if (!asset_manager->load_db(file_manager, "assets.txt")) {
+	if (!asset_manager->load_db(file_manager, "assets/assets.txt")) {
 		return -1;
 	}
 
 	std::unique_ptr<MapManager> map_manager = std::make_unique<MapManager>(file_manager);
-	if (!map_manager->load("levels.txt")) {
+	if (!map_manager->load("maps/levels.txt")) {
 		return -1;
 	}
 

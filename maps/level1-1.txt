@@ -21,7 +21,7 @@ y = 10
 
 # BG / parallax layer 1
 [[layers]]
-tileset = "tileset-outdoor.txt"
+tileset = "maps/tileset-outdoor.txt"
 parallax = 0.25
 repeat_x = true
 # this is 22 tiles?
@@ -45,7 +45,7 @@ tiles = [
 
 # BG / parallax layer 2
 [[layers]]
-tileset = "tileset-outdoor.txt"
+tileset = "maps/tileset-outdoor.txt"
 parallax = 0.5
 repeat_x = true
 # this should be 3/4x as wide, so 28? cells
@@ -68,7 +68,7 @@ tiles = [
 ]
 
 [[layers]]
-tileset = "tileset-outdoor.txt"
+tileset = "maps/tileset-outdoor.txt"
 tiles = [
 	[ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
 	[ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
@@ -91,7 +91,7 @@ tiles = [
 # entity layer, so it's empty!
 
 [[layers]]
-tileset = "tileset-outdoor.txt"
+tileset = "maps/tileset-outdoor.txt"
 
 # Layers could specify tiles as tables with more detail.
 # any tile NOT specified is assumed 0.
@@ -102,7 +102,7 @@ x = 8
 y = 7
 
 [[layers.tiles.events]]
-script = "coinblock.wut"
+script = "scripts/coinblock.wut"
 vars = { coins = 5 }
 events = ["collide"]
 
@@ -112,7 +112,7 @@ x = 4
 y = 10
 
 [[layers.tiles.events]]
-script = "shatterblock.wut"
+script = "scripts/shatterblock.wut"
 events = ["collide"]
 
 [[layers.tiles]]
@@ -121,7 +121,7 @@ x = 6
 y = 10
 
 [[layers.tiles.events]]
-script = "shatterblock.wut"
+script = "scripts/shatterblock.wut"
 events = ["collide"]
 
 [[layers.tiles]]
@@ -130,7 +130,7 @@ x = 8
 y = 10
 
 [[layers.tiles.events]]
-script = "shatterblock.wut"
+script = "scripts/shatterblock.wut"
 events = ["collide"]
 
 [[layers.tiles]]
@@ -139,7 +139,7 @@ x = 10
 y = 10
 
 [[layers.tiles.events]]
-script = "shatterblock.wut"
+script = "scripts/shatterblock.wut"
 events = ["collide"]
 
 
@@ -149,7 +149,7 @@ x = 7
 y = 10
 
 [[layers.tiles.events]]
-script = "coinblock.wut"
+script = "scripts/coinblock.wut"
 vars = { coins = 1 }
 events = ["collide"]
 
@@ -159,6 +159,6 @@ x = 9
 y = 10
 
 [[layers.tiles.events]]
-script = "coinblock.wut"
+script = "scripts/coinblock.wut"
 vars = { coins = 1 }
 events = ["collide"]
