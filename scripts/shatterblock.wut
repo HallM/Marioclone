@@ -1,5 +1,5 @@
 
 fn onCollide(event: mut ref OnCollisionEvent) {
-	print_f32(event.myTransform.pos.x)
-	print_transform(event)
+	let mt: mut ref Transform = EntityManager::mut_transform(event.manager, event.myID)
+	print_f32(mt.position.x)
 }

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <sstream>
 
@@ -55,25 +56,16 @@ void print_s32(int x) {
 }
 
 struct OnCollisionEvent {
+	MattECS::EntityManager* manager;
+	GameScene* scene;
+	MattECS::EntityID myID;
 	const AABB* myAABB;
 	const Transform* myTransform;
+	MattECS::EntityID collidedID;
 	const AABB* collidedAABB;
 	const Transform* collidedTransform;
-// entityManager: mut ref EntityManager
-// scene: mut ref GameScene
-// myID: EntityID
-// myAABB: ref AABB
-// myTransform: ref Transform
-// collidedID: EntityID
-// collidedAABB: ref AABB
-// collidedTransform: ref Transform
 };
-void print_transform(OnCollisionEvent* t) {
-    std::cout << "transform pos: ";
-    std::cout << size_t(t->myTransform) << " -> ";
-    std::cout << t->myTransform->position.x << " ";
-    std::cout << t->myTransform->position.y << "\n";
-}
+
 struct OnCollisionHandler {
 	typedef std::function<void(VM&, VMFixedStack&, OnCollisionEvent*)> FHandler;
 
@@ -90,6 +82,7 @@ GameScene::GameScene(const Tilemap level) :
 	_gui_view(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)),
 	_level(level),
 	_player(0),
+	_coins(0),
 	_render_colliders(false),
 	_milestone_reached(0),
 	_fpsclock(),
@@ -128,6 +121,17 @@ GameScene::GameScene(const Tilemap level) :
 	RegisterRenderGUISystem(&GameScene::DrawBuffer);
 
 	_script_compiler
+		.build_struct<MattECS::EntityID>("EntityID")
+		.build();
+	_script_compiler
+		.build_struct<MattECS::EntityManager>("EntityManager")
+		.build();
+
+	_script_compiler
+		.build_struct<GameScene>("GameScene")
+		.build();
+
+	_script_compiler
 		.build_struct<sf::Vector2f>("Vec2f")
 		.add_member<float>("x", offsetof(sf::Vector2f, x))
 		.add_member<float>("y", offsetof(sf::Vector2f, y))
@@ -143,20 +147,27 @@ GameScene::GameScene(const Tilemap level) :
 
 	_script_compiler
 		.build_struct<Transform>("Transform")
-		.add_member<sf::Vector2f>("pos", offsetof(Transform, position))
+		.add_member<sf::Vector2f>("position", offsetof(Transform, position))
 		.build();
 
     _script_compiler
 		.build_struct<OnCollisionEvent>("OnCollisionEvent")
+		.add_member<MattECS::EntityManager*>("manager", offsetof(OnCollisionEvent, manager))
+		.add_member<GameScene*>("scene", offsetof(OnCollisionEvent, scene))
+		.add_member<MattECS::EntityID>("myID", offsetof(OnCollisionEvent, myID))
 		.add_member<const AABB*>("myAABB", offsetof(OnCollisionEvent, myAABB))
 		.add_member<const Transform*>("myTransform", offsetof(OnCollisionEvent, myTransform))
+		.add_member<MattECS::EntityID>("collidedID", offsetof(OnCollisionEvent, collidedID))
 		.add_member<const AABB*>("collidedAABB", offsetof(OnCollisionEvent, collidedAABB))
 		.add_member<const Transform*>("collidedTransform", offsetof(OnCollisionEvent, collidedTransform))
 		.build();
 
 	_script_compiler.import_method<void,float>("print_f32", print_f32);
 	_script_compiler.import_method<void,int>("print_s32", print_s32);
-	_script_compiler.import_method<void,OnCollisionEvent*>("print_transform", print_transform);
+	_script_compiler.import_scoped_method<Transform*,MattECS::EntityManager*,MattECS::EntityID>(
+		"EntityManager", "mut_transform", std::mem_fn(&MattECS::EntityManager::mut<Transform>));
+	_script_compiler.import_scoped_method<void,GameScene*,int>(
+			"GameScene", "AddCoin", std::mem_fn(&GameScene::AddCoin));
 
 	_script_vm = std::make_shared<VM>(VMSTACK_PAGE_SIZE);
 }
@@ -175,7 +186,6 @@ std::shared_ptr<Program> GameScene::GetScript(std::string name) {
         (std::istreambuf_iterator<char>())
     );
 	std::cout << "Compile " << name << "\n";
-	std::cout << contents << "\n";
 
 	auto prog = _script_compiler.compile(name, contents);
 	_cached_scripts[name] = prog;
@@ -453,22 +463,22 @@ void GameScene::MovementSystem(GameManager& gm) {
 
 	auto mtsq = entity_manager().query<Movement, Transform, Sensors>().optional<Sensors>();
 	for (auto it = mtsq.begin(); it != mtsq.end(); ++it) {
-		if (it.has<Sensors>()) {
-			const Sensors& s = it.value<Sensors>();
-			Movement& m = it.mut<Movement>();
-			if (m.velocity.x > 0 && s.right) {
-				m.velocity.x = 0.0f;
-			}
-			if (m.velocity.x < 0 && s.left) {
-				m.velocity.x = 0.0f;
-			}
-			if (m.velocity.y > 0 && s.bottom) {
-				m.velocity.y = 0.0f;
-			}
-			if (m.velocity.y < 0 && s.top) {
-				m.velocity.y = 0.0f;
-			}
-		}
+		//if (it.has<Sensors>()) {
+		//	const Sensors& s = it.value<Sensors>();
+		//	Movement& m = it.mut<Movement>();
+		//	if (m.velocity.x > 0 && s.right) {
+		//		m.velocity.x = 0.0f;
+		//	}
+		//	if (m.velocity.x < 0 && s.left) {
+		//		m.velocity.x = 0.0f;
+		//	}
+		//	if (m.velocity.y > 0 && s.bottom) {
+		//		m.velocity.y = 0.0f;
+		//	}
+		//	if (m.velocity.y < 0 && s.top) {
+		//		m.velocity.y = 0.0f;
+		//	}
+		//}
 
 		const Movement& m = it.value<Movement>();
 		Transform& t = it.mut<Transform>();
@@ -563,14 +573,12 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 
 				if (auto maybehandler = entity_manager().tryGet<OnCollisionHandler>(e1)) {
 					auto handler = maybehandler.value();
-					OnCollisionEvent evt = {&aabb1, &t1, &aabb2, &t2};
-					std::cout << "adding pos " << size_t(&t1) << " | " << size_t(&evt) << "\n";
+					OnCollisionEvent evt = {&entity_manager(), this, e1, &aabb1, &t1, e2, &aabb2, &t2};
 					handler->handler(*_script_vm, *handler->state, &evt);
 				}
 				if (auto maybehandler = entity_manager().tryGet<OnCollisionHandler>(e2)) {
 					auto handler = maybehandler.value();
-					OnCollisionEvent evt = {&aabb2, &t2, &aabb1, &t1};
-					std::cout << "adding pos " << size_t(&t2) << " | " << size_t(&evt) << "\n";
+					OnCollisionEvent evt = {&entity_manager(), this, e2, &aabb2, &t2, e1, &aabb1, &t1};
 					handler->handler(*_script_vm, *handler->state, &evt);
 				}
 
@@ -663,20 +671,48 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 					// the smallest T will be the closest to the original position
 					// tx/ty will be 0 if it cannot be satisfied this frame, but we assume
 					// that the other will satisfy since the object JUST became overlapped.
-					auto t = fmin(tx, ty);
-
-					if (t >= 0.0 && t < 1.0f) {
-						if (is_dynamic1 && (vel_x_1 != 0.0f || vel_y_1 != 0.0)) {
-							Transform& tr = it.mut<Transform>();
-							tr.position.x = aabb1.previous_position.x + vel_x_1 * t;
-							tr.position.y = aabb1.previous_position.y + vel_y_1 * t;
-						}
-						if (is_dynamic2 && (vel_x_2 != 0.0f || vel_y_2 != 0.0)) {
-							Transform& tr = it2.mut<Transform>();
-							tr.position.x = aabb2.previous_position.x + vel_x_2 * t;
-							tr.position.y = aabb2.previous_position.y + vel_y_2 * t;
+					if (tx < ty) {
+						if (tx >= 0.0 && tx < 1.0f) {
+							if (is_dynamic1 && vel_x_1 != 0.0f) {
+								Transform& tr = it.mut<Transform>();
+								tr.position.x = aabb1.previous_position.x + vel_x_1 * tx;
+								mmit1.mut<Movement>().velocity.x = 0.0f;
+							}
+							if (is_dynamic2 && vel_x_2 != 0.0f) {
+								Transform& tr = it2.mut<Transform>();
+								tr.position.x = aabb2.previous_position.x + vel_x_2 * tx;
+								mmit2.mut<Movement>().velocity.x = 0.0f;
+							}
 						}
 					}
+					else {
+						if (ty >= 0.0 && ty < 1.0f) {
+							if (is_dynamic1 && vel_y_1 != 0.0f) {
+								Transform& tr = it.mut<Transform>();
+								tr.position.y = aabb1.previous_position.y + vel_y_1 * ty;
+								mmit1.mut<Movement>().velocity.y = 0.0f;
+							}
+							if (is_dynamic2 && vel_y_2 != 0.0) {
+								Transform& tr = it2.mut<Transform>();
+								tr.position.y = aabb2.previous_position.y + vel_y_2 * ty;
+								mmit2.mut<Movement>().velocity.y = 0.0f;
+							}
+						}
+					}
+
+					auto t = fmin(tx, ty);
+					//if (t >= 0.0 && t < 1.0f) {
+					//	if (is_dynamic1 && (vel_x_1 != 0.0f || vel_y_1 != 0.0)) {
+					//		Transform& tr = it.mut<Transform>();
+					//		tr.position.x = aabb1.previous_position.x + vel_x_1 * t;
+					//		tr.position.y = aabb1.previous_position.y + vel_y_1 * t;
+					//	}
+					//	if (is_dynamic2 && (vel_x_2 != 0.0f || vel_y_2 != 0.0)) {
+					//		Transform& tr = it2.mut<Transform>();
+					//		tr.position.x = aabb2.previous_position.x + vel_x_2 * t;
+					//		tr.position.y = aabb2.previous_position.y + vel_y_2 * t;
+					//	}
+					//}
 				}
 			}
 
@@ -930,4 +966,12 @@ void GameScene::DrawBuffer(GameManager& gm, sf::RenderWindow& window, int delta_
 	float x_scale = (float)window.getSize().x / 256.0f;
 	sprite.setScale(x_scale, x_scale);
 	window.draw(sprite);
+}
+
+// Scripting API
+void GameScene::AddCoin(int quantity) {
+	_coins += quantity;
+}
+
+void GameScene::ChangeTile(MattECS::EntityID entity, int tiletype) {
 }

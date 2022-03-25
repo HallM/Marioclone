@@ -160,5 +160,5 @@ y = 10
 
 [[layers.tiles.events]]
 script = "scripts/coinblock.wut"
-vars = { coins = 1 }
+vars = { coins = 2 }
 events = ["collide"]

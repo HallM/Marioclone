@@ -82,12 +82,17 @@ private:
 	// Draws the buffer to the screen.
 	void DrawBuffer(GameManager& gm, sf::RenderWindow& window, int delta_ms);
 
+	// Scripting API
+	void AddCoin(int quantity);
+	void ChangeTile(MattECS::EntityID entity, int tiletype);
+
 	std::shared_ptr<Program> GetScript(std::string name);
 	MattScript::Compiler _script_compiler;
 	std::unordered_map<std::string, std::shared_ptr<Program>> _cached_scripts;
 	std::shared_ptr<VM> _script_vm;
 	
 	MattECS::EntityID _player;
+	int _coins;
 
 	Tilemap _level;
 

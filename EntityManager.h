@@ -70,6 +70,7 @@ namespace MattECS {
 		}
 		C& value(EntityID id) {
 			auto index = _id_to_index[id];
+			set_changed(index);
 			return _values[index];
 		}
 
@@ -372,6 +373,11 @@ namespace MattECS {
 		const C& get(EntityID id) {
 			auto c = _manager<C>();
 			return c->cvalue(id);
+		}
+		template <typename C>
+		C* mut(EntityID id) {
+			auto c = _manager<C>();
+			return &c->value(id);
 		}
 
 		template <typename C>

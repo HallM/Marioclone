@@ -1,11 +1,10 @@
 let coins: mut s32
 
 fn onCollide(event: mut ref OnCollisionEvent) {
-	print_s32(coins)
-
 	if coins <= 0 {
 		return void
 	}
-
+	print_s32(coins)
+	GameScene::AddCoin(event.scene, 1)
 	coins -= 1
 }
