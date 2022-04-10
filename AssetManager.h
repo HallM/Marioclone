@@ -38,6 +38,9 @@ struct SpriteSheetEntryConfig {
 	unsigned int animation_frames = 0;
 	// ticks per frame
 	unsigned int animation_rate = 0;
+	// offset per frame for animations
+	unsigned int animation_offset_x = 0;
+	unsigned int animation_offset_y = 0;
 };
 
 struct SpriteSheetConfig {

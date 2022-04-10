@@ -11,50 +11,50 @@ move_parallax_layer(Transform& t, const CTilemapParallaxLayer& pl, float camera_
 	t.position.x = camera_x - (camera_x * pl.parallax);
 }
 
-bool
-generate_components(const Tilemap& tmap, MattECS::EntityManager& em, AssetManager& am) {
-	for (unsigned int i = 0; i < tmap.layers.size(); i++) {
-		const auto& layer = tmap.layers[i];
-
-		if (layer.tileset.texture.length() > 0) {
-			auto mape = em.entity();
-			sf::Texture& t = am.get_texture(layer.tileset.texture);
-			em.add<CTilemapRenderLayer>(mape, tmap, i, t);
-			em.add<Transform>(mape, 0.0f, 0.0f);
-			em.add<ZIndex>(mape, i);
-			if (layer.parallax != 1.0f) {
-				em.add<CTilemapParallaxLayer>(mape, layer.parallax);
-			}
-		}
-
-		float half_w = (float)tmap.tile_width / 2.0f;
-		float half_h = (float)tmap.tile_height / 2.0f;
-
-		// add AABBs
-		for (const auto& tile : layer.tiles) {
-			if (tile.id <= 0) {
-				continue;
-			}
-			const auto& tile_info = layer.tileset.tiles[tile.id - 1];
-			if (tile_info.aabb.width > 0 && tile_info.aabb.height > 0) {
-				AABB::Material m;
-				if (tile_info.passage) {
-					m = AABB::Material::Permeable;
-				}
-				else {
-					m = AABB::Material::Solid;
-				}
-				auto e = em.entity();
-				em.add<Transform>(e, (float)(tile.x * tmap.tile_width) + half_w, (float)(tile.y * tmap.tile_height) + half_h);
-				em.add<AABB>(
-					e,
-					sf::Vector2f(tile_info.aabb.width, tile_info.aabb.height),
-					m, tile_info.damage, tile_info.hardness, tile_info.piercing);
-			}
-		}
-	}
-	return true;
-}
+//bool
+//generate_components(const Tilemap& tmap, MattECS::EntityManager& em, AssetManager& am) {
+//	for (unsigned int i = 0; i < tmap.layers.size(); i++) {
+//		const auto& layer = tmap.layers[i];
+//
+//		if (layer.tileset.texture.length() > 0) {
+//			auto mape = em.entity();
+//			sf::Texture& t = am.get_texture(layer.tileset.texture);
+//			em.add<CTilemapRenderLayer>(mape, tmap, i, t);
+//			em.add<Transform>(mape, 0.0f, 0.0f);
+//			em.add<ZIndex>(mape, i);
+//			if (layer.parallax != 1.0f) {
+//				em.add<CTilemapParallaxLayer>(mape, layer.parallax);
+//			}
+//		}
+//
+//		float half_w = (float)tmap.tile_width / 2.0f;
+//		float half_h = (float)tmap.tile_height / 2.0f;
+//
+//		// add AABBs
+//		for (const auto& tile : layer.tiles) {
+//			if (tile.id <= 0) {
+//				continue;
+//			}
+//			const auto& tile_info = layer.tileset.tiles[tile.id - 1];
+//			if (tile_info.aabb.width > 0 && tile_info.aabb.height > 0) {
+//				AABB::Material m;
+//				if (tile_info.passage) {
+//					m = AABB::Material::Permeable;
+//				}
+//				else {
+//					m = AABB::Material::Solid;
+//				}
+//				auto e = em.entity();
+//				em.add<Transform>(e, (float)(tile.x * tmap.tile_width) + half_w, (float)(tile.y * tmap.tile_height) + half_h);
+//				em.add<AABB>(
+//					e,
+//					sf::Vector2f(tile_info.aabb.width, tile_info.aabb.height),
+//					m, tile_info.damage, tile_info.hardness, tile_info.piercing);
+//			}
+//		}
+//	}
+//	return true;
+//}
 
 ElementAABB
 MapManager::parse_aabb(toml::node_view<toml::node> n) {
@@ -85,8 +85,15 @@ MapManager::parse_milestone(toml::node_view<toml::node> n) {
 	};
 }
 
-TileEvent
-MapManager::parse_tileevent(toml::node_view<toml::node> n) {
+Script
+MapManager::parse_script(toml::node_view<toml::node> n) {
+	std::vector<std::string> events;
+	if (auto arr = n["events"].as_array()) {
+		for (auto& v : *arr) {
+			events.push_back(v.value_or<std::string>(""));
+		}
+	}
+
 	std::unordered_map<std::string, std::variant<float,int>> vars;
 	if (auto varconfig = n["vars"].as_table()) {
 		for (auto it = varconfig->begin(); it != varconfig->end(); it++) {
@@ -100,61 +107,76 @@ MapManager::parse_tileevent(toml::node_view<toml::node> n) {
 		
 		}
 	}
-	return TileEvent{
-		n["script"].value_or<std::string>(""),
+
+	return Script{
+		n["path"].value_or<std::string>(""),
+		events,
 		vars
+	};
+}
+
+Entity
+MapManager::parse_entity(toml::node_view<toml::node> n) {
+	std::vector<Script> scripts;
+	if (n["scripts"].is_array_of_tables()) {
+		if (auto arr = n["scripts"].as_array()) {
+			for (auto& v : *arr) {
+				auto node = toml::node_view<toml::node>(v);
+				scripts.push_back(parse_script(node));
+			}
+		}
+	}
+
+	return Entity{
+		n["spritesheet"].value_or<std::string>(""),
+		n["sprite"].value_or<std::string>(""),
+		parse_aabb(n["aabb"]),
+		n["x"].value_or<unsigned int>(0),
+		n["y"].value_or<unsigned int>(0),
+		scripts
 	};
 }
 
 TileConfig
 MapManager::parse_tile(toml::node_view<toml::node> n) {
-	std::vector<TileEvent> events;
-	if (n["events"].is_array_of_tables()) {
-		if (auto arr = n["events"].as_array()) {
-			for (auto& v : *arr) {
-				auto node = toml::node_view<toml::node>(v);
-				events.push_back(parse_tileevent(node));
-			}
-		}
-	}
-
 	return TileConfig{
 		n["id"].value_or<unsigned int>(0),
 		n["x"].value_or<unsigned int>(0),
-		n["y"].value_or<unsigned int>(0),
-		events
+		n["y"].value_or<unsigned int>(0)
 	};
 }
 
 std::vector<TileConfig>
 MapManager::parse_tiles(toml::node_view<toml::node> n, unsigned int width, unsigned int height) {
 	std::vector<TileConfig> tiles;
-
-	if (n.is_array_of_tables()) {
-		if (auto arr = n.as_array()) {
-			for (auto& v : *arr) {
-				auto node = toml::node_view<toml::node>(v);
-				tiles.push_back(parse_tile(node));
-			}
-		}
-	}
-	else {
-		if (auto arr = n.as_array()) {
-			unsigned int y = 0;
-			for (auto& hv : *arr) {
-				if (auto arr = hv.as_array()) {
-					unsigned int x = 0;
-					for (auto& v : *arr) {
-						unsigned int id = v.value_or<unsigned int>(0);
-						tiles.push_back(TileConfig{ id, x, y });
-						x++;
-					}
+	if (auto arr = n.as_array()) {
+		unsigned int y = 0;
+		for (auto& hv : *arr) {
+			if (auto arr = hv.as_array()) {
+				unsigned int x = 0;
+				for (auto& v : *arr) {
+					unsigned int id = v.value_or<unsigned int>(0);
+					tiles.push_back(TileConfig{ id, x, y });
+					x++;
 				}
-				y++;
 			}
+			y++;
 		}
 	}
 	return tiles;
+}
+
+std::vector<Entity>
+MapManager::parse_entities(toml::node_view<toml::node> n) {
+	std::vector<Entity> entities;
+
+	if (auto arr = n.as_array()) {
+		for (auto& e : *arr) {
+			auto node = toml::node_view<toml::node>(e);
+			entities.push_back(parse_entity(node));
+		}
+	}
+	return entities;
 }
 
 TileSetTileConfig
@@ -269,17 +291,19 @@ MapManager::parse_layer(toml::node_view<toml::node> n, unsigned int width, unsig
 		}
 	}
 	
+	auto entities = parse_entities(n["entities"]);
 
 	return LayerConfig{
 		parallax,
 		layer_width,
 		layer_height,
 		tsc,
-		tiles
+		tiles,
+		entities
 	};
 }
 
-Tilemap
+Map
 MapManager::parse_tilemap(toml::table config) {
 	float gravity = config["gravity"].value_or<float>(0.0f);
 	unsigned int width = config["width"].value_or<unsigned int>(0);
@@ -305,7 +329,7 @@ MapManager::parse_tilemap(toml::table config) {
 		}
 	}
 
-	return Tilemap{
+	return Map{
 		gravity, width, height, tile_width, tile_height,
 		player,
 		milestones, layers
@@ -359,7 +383,7 @@ MapManager::load(std::string config_path) {
 	return true;
 }
 
-std::optional<Tilemap>
+std::optional<Map>
 MapManager::get_level(std::string name) {
 	auto it = _levels.find(name);
 	if (it == _levels.end()) {

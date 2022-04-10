@@ -76,7 +76,7 @@ struct OnCollisionHandler {
 	OnCollisionHandler(std::shared_ptr<Program> sc, std::shared_ptr<VMFixedStack> st, FHandler h) : script(sc), state(st), handler(h) {}
 };
 
-GameScene::GameScene(const Tilemap level) :
+GameScene::GameScene(const Map level) :
 	_render_texture(),
 	_camera(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)),
 	_gui_view(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)),
@@ -270,7 +270,6 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 		entity_manager().add<AABB>(world_aabbs, sf::Vector2f(w, 2.0f), AABB::Material::Permeable, 999, 999, 999);
 	}
 
-	// generate_components(_level, entity_manager(), gm.asset_manager());
 	for (unsigned int i = 0; i < _level.layers.size(); i++) {
 		const auto& layer = _level.layers[i];
 
@@ -308,27 +307,55 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 					e,
 					sf::Vector2f(tile_info.aabb.width, tile_info.aabb.height),
 					m, tile_info.damage, tile_info.hardness, tile_info.piercing);
-				if (tile.events.size() > 0) {
-					std::shared_ptr<Program> script = GetScript(tile.events[0].script);
-					auto handler = script->method<void,OnCollisionEvent*>("onCollide");
-					std::shared_ptr<VMFixedStack> state = script->generate_state();
-					for (auto it : tile.events[0].vars) {
-						if (std::holds_alternative<int>(it.second)) {
-					        auto address = script->get_global_address(it.first);
-							*state->at<int>(address) = std::get<int>(it.second);
-						}
-						else if (std::holds_alternative<float>(it.second)) {
-					        auto address = script->get_global_address(it.first);
-							*state->at<float>(address) = std::get<float>(it.second);
-						}
-					}
+			}
+		}
 
-					std::cout << "Add handler " << tile.events[0].script << " for " << e << "\n";
-					entity_manager().add<OnCollisionHandler>(
-						e,
-						script, state, handler
-					);
+		for (const auto& entity : layer.entities) {
+			auto& tex = asset_manager.get_spritesheet_texture(entity.spritesheet);
+			auto spconfig = asset_manager.get_spritesheet_entry(entity.spritesheet, entity.sprite);
+
+			auto e = entity_manager().entity();
+			entity_manager().add<Transform>(e, (float)(entity.x * _level.tile_width) + half_w, (float)(entity.y * _level.tile_height) + half_h);
+			entity_manager().add<AABB>(
+				e,
+				sf::Vector2f(entity.aabb.width, entity.aabb.height),
+				AABB::Material::Solid, 0, 0, 0);
+
+			entity_manager().add<Sprite>(e, tex, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.width, (float)spconfig.height), sf::Vector2f(0.5f, 0.5f));
+			entity_manager().add<Animation>(e,
+				animation_name,
+				spconfig,
+				true,
+				"",
+				false
+			);
+			entity_manager().add<ZIndex>(e, i);
+
+			for (const auto& s : entity.scripts) {
+				std::shared_ptr<Program> script = GetScript(s.path);
+				std::shared_ptr<VMFixedStack> state = script->generate_state();
+				for (auto it : s.vars) {
+					if (std::holds_alternative<int>(it.second)) {
+					    auto address = script->get_global_address(it.first);
+						*state->at<int>(address) = std::get<int>(it.second);
+					}
+					else if (std::holds_alternative<float>(it.second)) {
+					    auto address = script->get_global_address(it.first);
+						*state->at<float>(address) = std::get<float>(it.second);
+					}
 				}
+
+				for (const std::string& evt : s.events) {
+					if (evt == "collide") {
+						auto handler = script->method<void,OnCollisionEvent*>("onCollide");
+						std::cout << "Add handler " << s.path << "::" << evt << " for " << e << "\n";
+						entity_manager().add<OnCollisionHandler>(
+							e,
+							script, state, handler
+						);
+					}
+				}
+
 			}
 		}
 	}
@@ -873,7 +900,7 @@ void GameScene::AnimationSystem(GameManager& gm) {
 			actual_frame = 0;
 		}
 
-		int x = (actual_frame * (ani.config.width + 1)) + ani.config.x;
+		int x = (actual_frame * (ani.config.width + ani.config.animation_offset_x)) + ani.config.x;
 		s.set_rect(sf::FloatRect((float)x, (float)ani.config.y, (float)ani.config.width, (float)ani.config.height));
 	}
 

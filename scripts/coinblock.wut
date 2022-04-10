@@ -5,6 +5,6 @@ fn onCollide(event: mut ref OnCollisionEvent) {
 		return void
 	}
 	print_s32(coins)
-	GameScene::AddCoin(event.scene, 1)
+	event.scene.AddCoin(1)
 	coins -= 1
 }

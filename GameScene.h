@@ -16,7 +16,7 @@
 
 class GameScene : public BaseScene<GameScene> {
 public:
-	GameScene(const Tilemap level);
+	GameScene(const Map level);
 	virtual ~GameScene();
 
 	// Loads the level and generates all the entities.
@@ -94,7 +94,7 @@ private:
 	MattECS::EntityID _player;
 	int _coins;
 
-	Tilemap _level;
+	Map _level;
 
 	sf::RenderTexture _render_texture;
 	sf::View _camera;

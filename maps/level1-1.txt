@@ -95,70 +95,85 @@ tileset = "maps/tileset-outdoor.txt"
 
 # Layers could specify tiles as tables with more detail.
 # any tile NOT specified is assumed 0.
-[[layers.tiles]]
-id = 2 # uses the same ID as the tiles though
+[[layers.entities]]
+spritesheet = "OutdoorTilesheet"
+sprite = "Brick"
+# slightly smaller AABB
+aabb = { width = 14, height = 16 }
 # position is tiles, not pixels.
 x = 8
 y = 7
 
-[[layers.tiles.events]]
-script = "scripts/coinblock.wut"
+[[layers.entities.scripts]]
+path = "scripts/coinblock.wut"
 vars = { coins = 5 }
 events = ["collide"]
 
-[[layers.tiles]]
-id = 2
+[[layers.entities]]
+spritesheet = "OutdoorTilesheet"
+sprite = "Brick"
+aabb = { width = 14, height = 16 }
 x = 4
 y = 10
 
-[[layers.tiles.events]]
-script = "scripts/shatterblock.wut"
+[[layers.entities.scripts]]
+path = "scripts/shatterblock.wut"
 events = ["collide"]
 
-[[layers.tiles]]
-id = 2
+[[layers.entities]]
+spritesheet = "OutdoorTilesheet"
+sprite = "Brick"
+aabb = { width = 14, height = 16 }
 x = 6
 y = 10
 
-[[layers.tiles.events]]
-script = "scripts/shatterblock.wut"
+[[layers.entities.scripts]]
+path = "scripts/shatterblock.wut"
 events = ["collide"]
 
-[[layers.tiles]]
-id = 2
+[[layers.entities]]
+spritesheet = "OutdoorTilesheet"
+sprite = "Brick"
+aabb = { width = 14, height = 16 }
 x = 8
 y = 10
 
-[[layers.tiles.events]]
-script = "scripts/shatterblock.wut"
+[[layers.entities.scripts]]
+path = "scripts/shatterblock.wut"
 events = ["collide"]
 
-[[layers.tiles]]
-id = 2
+[[layers.entities]]
+spritesheet = "OutdoorTilesheet"
+sprite = "Brick"
+aabb = { width = 14, height = 16 }
 x = 10
 y = 10
 
-[[layers.tiles.events]]
-script = "scripts/shatterblock.wut"
+[[layers.entities.scripts]]
+path = "scripts/shatterblock.wut"
 events = ["collide"]
 
 
-[[layers.tiles]]
-id = 36
+[[layers.entities]]
+spritesheet = "OutdoorTilesheet"
+sprite = "QuestionBlock"
+aabb = { width = 14, height = 16 }
 x = 7
 y = 10
 
-[[layers.tiles.events]]
-script = "scripts/coinblock.wut"
+[[layers.entities.scripts]]
+path = "scripts/coinblock.wut"
 vars = { coins = 1 }
 events = ["collide"]
 
-[[layers.tiles]]
-id = 36
+[[layers.entities]]
+spritesheet = "OutdoorTilesheet"
+sprite = "QuestionBlock"
+aabb = { width = 14, height = 16 }
 x = 9
 y = 10
 
-[[layers.tiles.events]]
-script = "scripts/coinblock.wut"
+[[layers.entities.scripts]]
+path = "scripts/coinblock.wut"
 vars = { coins = 2 }
 events = ["collide"]

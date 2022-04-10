@@ -22,31 +22,6 @@ struct ElementAABB {
 	float height;
 };
 
-struct PlayerConfig {
-	ElementAABB aabb;
-	float run_speed;
-	float jump_speed;
-	float fall_speed;
-	int layer;
-};
-
-struct MilestoneConfig {
-	unsigned int x;
-	unsigned int y;
-};
-
-struct TileEvent {
-	std::string script;
-	std::unordered_map<std::string, std::variant<float,int>> vars;
-};
-
-struct TileConfig {
-	unsigned int id;
-	unsigned int x;
-	unsigned int y;
-	std::vector<TileEvent> events;
-};
-
 struct TileSetTileConfig {
 	std::string name;
 	unsigned int x = 0;
@@ -72,6 +47,40 @@ struct TileSetConfig {
 	std::vector<TileSetTileConfig> tiles;
 };
 
+struct Script {
+	std::string path;
+	std::vector<std::string> events;
+	std::unordered_map<std::string, std::variant<float,int>> vars;
+};
+
+struct PlayerConfig {
+	ElementAABB aabb;
+	float run_speed;
+	float jump_speed;
+	float fall_speed;
+	int layer;
+};
+
+struct MilestoneConfig {
+	unsigned int x;
+	unsigned int y;
+};
+
+struct TileConfig {
+	unsigned int id;
+	unsigned int x;
+	unsigned int y;
+};
+
+struct Entity {
+	std::string spritesheet;
+	std::string sprite;
+	ElementAABB aabb;
+	unsigned int x;
+	unsigned int y;
+	std::vector<Script> scripts;
+};
+
 struct LayerConfig {
 	float parallax;
 	// the w/h are computed from w/h of the map * parallax and rounded down
@@ -79,9 +88,10 @@ struct LayerConfig {
 	unsigned int height;
 	TileSetConfig tileset;
 	std::vector<TileConfig> tiles;
+	std::vector<Entity> entities;
 };
 
-struct Tilemap {
+struct Map {
 	float gravity;
 	unsigned int width;
 	unsigned int height;
@@ -125,7 +135,7 @@ public:
 	std::vector<AnimatedTile> animated_tiles;
 
 	CTilemapRenderLayer() : verts(), texture(nullptr), animation_tick(0), ani_multiple(1) {}
-	CTilemapRenderLayer(const Tilemap& map, unsigned int l, sf::Texture& t) :
+	CTilemapRenderLayer(const Map& map, unsigned int l, sf::Texture& t) :
 		verts(), texture(&t), animation_tick(0), ani_multiple(1)
 	{
 		const LayerConfig& layer = map.layers[l];
@@ -229,15 +239,13 @@ public:
 	}
 };
 
-bool generate_components(const Tilemap& tmap, MattECS::EntityManager& em, AssetManager& am);
-
 class MapManager {
 public:
 	MapManager(std::shared_ptr<IFileManager> file_manager);
 
 	bool load(std::string config_path);
 
-	std::optional<Tilemap> get_level(std::string name);
+	std::optional<Map> get_level(std::string name);
 	std::vector<std::string> get_level_names() const;
 private:
 	std::shared_ptr<IFileManager> _file_manager;
@@ -249,10 +257,12 @@ private:
 	MilestoneConfig parse_milestone(toml::node_view<toml::node> n);
 	TileConfig parse_tile(toml::node_view<toml::node> n);
 	std::vector<TileConfig> parse_tiles(toml::node_view<toml::node> n, unsigned int width, unsigned int height);
-	TileEvent parse_tileevent(toml::node_view<toml::node> n);
+	Script parse_script(toml::node_view<toml::node> n);
+	Entity parse_entity(toml::node_view<toml::node> n);
+	std::vector<Entity> parse_entities(toml::node_view<toml::node> n);
 	TileSetTileConfig parse_tileset_tile(toml::node_view<toml::node> tile_config);
 	TileSetConfig parse_tileset(toml::table config);
 	std::optional<TileSetConfig> load_tilesetfile(std::string path);
 	LayerConfig parse_layer(toml::node_view<toml::node> n, unsigned int width, unsigned int height);
-	Tilemap parse_tilemap(toml::table config);
+	Map parse_tilemap(toml::table config);
 };

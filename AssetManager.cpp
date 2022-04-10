@@ -38,6 +38,8 @@ parse_spritesheet_entry(toml::node_view<toml::node> n) {
 		n["height"].value_or<unsigned int>(0),
 		n["animation_frames"].value_or<unsigned int>(0),
 		n["animation_rate"].value_or<unsigned int>(0),
+		n["animation_offset_x"].value_or<unsigned int>(0),
+		n["animation_offset_y"].value_or<unsigned int>(0),
 	};
 }
 
