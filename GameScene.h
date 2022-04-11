@@ -84,7 +84,8 @@ private:
 
 	// Scripting API
 	void AddCoin(int quantity);
-	void ChangeTile(MattECS::EntityID entity, int tiletype);
+	void FragmentEntity(MattECS::EntityID entity);
+	void DestroyEntity(MattECS::EntityID entity);
 
 	std::shared_ptr<Program> GetScript(std::string name);
 	MattScript::Compiler _script_compiler;

@@ -8,6 +8,7 @@
 #include <typeindex>
 #include <typeinfo> 
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "timsort.hpp"
@@ -81,7 +82,7 @@ namespace MattECS {
 		virtual void delete_item(EntityID id) {
 			if (_id_to_index.find(id) != _id_to_index.end()) {
 				_changed = true;
-				_deleted_items.push_back(id);
+				_deleted_items.insert(id);
 			}
 		}
 		template <typename... Args>
@@ -112,9 +113,14 @@ namespace MattECS {
 			for (auto id : _deleted_items) {
 				unsigned int index = _id_to_index[id];
 				unsigned int last = _ids.size() - 1;
+				EntityID swap_width = _ids[last];
+
+				// swap the back with the item deleted before removing entries.
 				std::swap(_ids[index], _ids[last]);
 				std::swap(_values[index], _values[last]);
 				_dirty[index] = _dirty[last];
+				_id_to_index[swap_width] = index;
+
 				_ids.pop_back();
 				_values.pop_back();
 				_dirty.pop_back();
@@ -199,7 +205,7 @@ namespace MattECS {
 		std::vector<C> _values;
 
 		std::unordered_map<EntityID, C> _new_items;
-		std::vector<EntityID> _deleted_items;
+		std::unordered_set<EntityID> _deleted_items;
 	};
 
 	class EntityManager {
@@ -373,6 +379,11 @@ namespace MattECS {
 		const C& get(EntityID id) {
 			auto c = _manager<C>();
 			return c->cvalue(id);
+		}
+		template <typename C>
+		const C* getptr(EntityID id) {
+			auto c = _manager<C>();
+			return &c->cvalue(id);
 		}
 		template <typename C>
 		C* mut(EntityID id) {

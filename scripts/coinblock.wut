@@ -1,6 +1,14 @@
 let coins: mut s32
 
 fn onCollide(event: mut ref OnCollisionEvent) {
+	if event.collidedTransform.position.y <= event.myTransform.position.y {
+		return void
+	}
+	let mov: ref Movement = event.manager.movement(event.collidedID)
+	if mov.velocity.y > 0.0 {
+		return void
+	}
+
 	if coins <= 0 {
 		return void
 	}

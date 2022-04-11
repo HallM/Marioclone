@@ -18,6 +18,16 @@ struct ZIndex {
 	ZIndex(int z) : z_index(z) {}
 };
 
+struct Gravity {
+	Gravity() {}
+};
+
+struct LimitedLifetime {
+	int frames;
+	LimitedLifetime() {}
+	LimitedLifetime(int f) : frames(f) {}
+};
+
 struct Sprite {
 	sf::Texture* t;
 	sf::VertexArray va;

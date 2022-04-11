@@ -1,5 +1,13 @@
 
 fn onCollide(event: mut ref OnCollisionEvent) {
-	let mt: mut ref Transform = EntityManager::mut_transform(event.manager, event.myID)
-	print_f32(mt.position.x)
+	if event.collidedTransform.position.y <= event.myTransform.position.y {
+		return void
+	}
+	let mov: ref Movement = event.manager.movement(event.collidedID)
+	if mov.velocity.y > 0.0 {
+		return void
+	}
+
+	event.scene.FragmentEntity(event.myID)
+	event.scene.DestroyEntity(event.myID)
 }

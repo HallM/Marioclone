@@ -19,6 +19,8 @@ const int PLAYER_BIG_PIERCE = 1;
 const int BLOCK_HARDNESS = 1;
 const int ENTITY_HARDNESS = 0;
 
+const float DEG_TO_RAD = 3.14159f / 180.0f;
+
 std::string MARIO_SPRITESHEET = "MarioSmall";
 std::string MARIO_STAND_ANIMATION = "Stand";
 std::string MARIO_RUN_ANIMATION = "Run";
@@ -96,6 +98,8 @@ GameScene::GameScene(const Map level) :
 	entity_manager().register_component<Sensors>();
 	entity_manager().register_component<Mortal>();
 	entity_manager().register_component<ZIndex>();
+	entity_manager().register_component<Gravity>();
+	entity_manager().register_component<LimitedLifetime>();
 	entity_manager().register_component<CTilemapRenderLayer>();
 	entity_manager().register_component<CTilemapParallaxLayer>();
 	entity_manager().register_component<OnCollisionHandler>();
@@ -150,6 +154,11 @@ GameScene::GameScene(const Map level) :
 		.add_member<sf::Vector2f>("position", offsetof(Transform, position))
 		.build();
 
+	_script_compiler
+		.build_struct<Movement>("Movement")
+		.add_member<sf::Vector2f>("velocity", offsetof(Movement, velocity))
+		.build();
+
     _script_compiler
 		.build_struct<OnCollisionEvent>("OnCollisionEvent")
 		.add_member<MattECS::EntityManager*>("manager", offsetof(OnCollisionEvent, manager))
@@ -164,10 +173,18 @@ GameScene::GameScene(const Map level) :
 
 	_script_compiler.import_method<void,float>("print_f32", print_f32);
 	_script_compiler.import_method<void,int>("print_s32", print_s32);
+
 	_script_compiler.import_scoped_method<Transform*,MattECS::EntityManager*,MattECS::EntityID>(
 		"EntityManager", "mut_transform", std::mem_fn(&MattECS::EntityManager::mut<Transform>));
+	_script_compiler.import_scoped_method<const Movement*,MattECS::EntityManager*,MattECS::EntityID>(
+		"EntityManager", "movement", std::mem_fn(&MattECS::EntityManager::getptr<Movement>));
+
 	_script_compiler.import_scoped_method<void,GameScene*,int>(
 			"GameScene", "AddCoin", std::mem_fn(&GameScene::AddCoin));
+	_script_compiler.import_scoped_method<void,GameScene*,MattECS::EntityID>(
+			"GameScene", "DestroyEntity", std::mem_fn(&GameScene::DestroyEntity));
+	_script_compiler.import_scoped_method<void,GameScene*,MattECS::EntityID>(
+			"GameScene", "FragmentEntity", std::mem_fn(&GameScene::FragmentEntity));
 
 	_script_vm = std::make_shared<VM>(VMSTACK_PAGE_SIZE);
 }
@@ -222,6 +239,7 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 
 	auto mario = entity_manager().entity();
 	entity_manager().add<Mortal>(mario, PLAYER_STARTING_HEALTH);
+	entity_manager().add<Gravity>(mario);
 	entity_manager().add<Movement>(mario, 0.0f, 0.0f);
 	entity_manager().add<Transform>(mario,
 		(float)(_level.milestones[_milestone_reached].x * _level.tile_width) + item_half,
@@ -458,26 +476,34 @@ void GameScene::AISystem(GameManager& gm) {}
 
 // Update objects with limited lifetime and destroy afterwards
 // Components: Lifetime*
-void GameScene::LifetimeSystem(GameManager& gm) {}
+void GameScene::LifetimeSystem(GameManager& gm) {
+	auto query = entity_manager().query<LimitedLifetime>();
+	for (auto it = query.begin(); it != query.end(); ++it) {
+		LimitedLifetime& l = it.mut<LimitedLifetime>();
+		l.frames -= 1;
+		if (l.frames <= 0) {
+			entity_manager().remove_all(it.entity());
+		}
+	}
+}
 
 // Make objects fall if subject to gravity
 // Components: Velocity*, Gravity
 void GameScene::GravitySystem(GameManager& gm) {
-	auto smq = entity_manager().query<Sensors, Movement>();
-	auto it = smq.find(_player);
+	auto query = entity_manager().query<Gravity, Movement, Sensors>().optional<Sensors>();
 
-	const Sensors& s = it.value<Sensors>();
-	const Movement& m = it.value<Movement>();
-
-	if (!s.bottom) {
-		if (m.velocity.y < _level.player.fall_speed) {
-			it.mut<Movement>().velocity.y = fmin(_level.player.fall_speed, m.velocity.y + _level.gravity);
+	for (auto it = query.begin(); it != query.end(); ++it) {
+		const auto& m = it.value<Movement>();
+		if (!it.has<Sensors>() || !it.value<Sensors>().bottom) {
+			if (m.velocity.y < _level.player.fall_speed) {
+				it.mut<Movement>().velocity.y = fmin(_level.player.fall_speed, m.velocity.y + _level.gravity);
+			}
+		} else if (m.velocity.y > 0.0f) {
+			it.mut<Movement>().velocity.y = 0.0f;
 		}
 	}
-	else if (m.velocity.y > 0.0f) {
-		it.mut<Movement>().velocity.y = 0.0f;
-	}
 }
+
 // Move objects with velocity
 // Components: Velocity, Position*
 void GameScene::MovementSystem(GameManager& gm) {
@@ -490,23 +516,6 @@ void GameScene::MovementSystem(GameManager& gm) {
 
 	auto mtsq = entity_manager().query<Movement, Transform, Sensors>().optional<Sensors>();
 	for (auto it = mtsq.begin(); it != mtsq.end(); ++it) {
-		//if (it.has<Sensors>()) {
-		//	const Sensors& s = it.value<Sensors>();
-		//	Movement& m = it.mut<Movement>();
-		//	if (m.velocity.x > 0 && s.right) {
-		//		m.velocity.x = 0.0f;
-		//	}
-		//	if (m.velocity.x < 0 && s.left) {
-		//		m.velocity.x = 0.0f;
-		//	}
-		//	if (m.velocity.y > 0 && s.bottom) {
-		//		m.velocity.y = 0.0f;
-		//	}
-		//	if (m.velocity.y < 0 && s.top) {
-		//		m.velocity.y = 0.0f;
-		//	}
-		//}
-
 		const Movement& m = it.value<Movement>();
 		Transform& t = it.mut<Transform>();
 		t.position.x += m.velocity.x;
@@ -1000,5 +1009,52 @@ void GameScene::AddCoin(int quantity) {
 	_coins += quantity;
 }
 
-void GameScene::ChangeTile(MattECS::EntityID entity, int tiletype) {
+void GameScene::FragmentEntity(MattECS::EntityID entity) {
+	int num_fragments = 4;
+
+	const Transform& transform = entity_manager().get<Transform>(entity);
+	const AABB& aabb = entity_manager().get<AABB>(entity);
+	Sprite* sprite = entity_manager().mut<Sprite>(entity);
+	Animation* animation = entity_manager().mut<Animation>(entity);
+	const ZIndex& zindex = entity_manager().get<ZIndex>(entity);
+
+	auto spconfig = animation->config;
+
+	float angle_iter = 360.0f / (float)num_fragments;
+	float angle = 0;
+	float divider = (float)num_fragments / 2.0f;
+	float size_x = 16.0f / divider;
+	float half_w = size_x / 2.0f;
+	float size_y = 16.0f / divider;
+	float half_h = size_y / 2.0f;
+
+	for (int i = 0; i < num_fragments; i++) {
+		float c = cosf(angle * DEG_TO_RAD);
+		float s = sinf(angle * DEG_TO_RAD);
+		float posx = transform.position.x + (c * size_x);
+		float posy = transform.position.y + (s * size_y);
+		angle += angle_iter;
+
+		float speed_x = c * 0.1f;
+		float speed_y = (s * 1.0f) + 0.5f;
+
+		auto e = entity_manager().entity();
+		entity_manager().add<Transform>(e, posx, posy);
+		entity_manager().add<Gravity>(e);
+		entity_manager().add<LimitedLifetime>(e, 60);
+		entity_manager().add<Movement>(e, speed_x, speed_y);
+		entity_manager().add<Sprite>(e, *sprite->t, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)size_x, (float)size_y), sf::Vector2f(0.5f, 0.5f));
+		entity_manager().add<Animation>(e,
+			spconfig.name,
+			spconfig,
+			true,
+			"",
+			false
+		);
+		entity_manager().add<ZIndex>(e, zindex.z_index);
+	}
+}
+
+void GameScene::DestroyEntity(MattECS::EntityID entity) {
+	entity_manager().remove_all(entity);
 }
