@@ -106,7 +106,7 @@ y = 7
 
 [[layers.entities.scripts]]
 path = "scripts/coinblock.wut"
-vars = { coins = 5 }
+vars = { coins = 5, coin_layer = 3 }
 events = ["collide"]
 
 [[layers.entities]]
@@ -163,7 +163,7 @@ y = 10
 
 [[layers.entities.scripts]]
 path = "scripts/coinblock.wut"
-vars = { coins = 1 }
+vars = { coins = 1, coin_layer = 3 }
 events = ["collide"]
 
 [[layers.entities]]
@@ -175,5 +175,5 @@ y = 10
 
 [[layers.entities.scripts]]
 path = "scripts/coinblock.wut"
-vars = { coins = 2 }
+vars = { coins = 2, coin_layer = 3 }
 events = ["collide"]

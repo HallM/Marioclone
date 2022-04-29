@@ -46,7 +46,45 @@ struct SpriteSheetEntryConfig {
 struct SpriteSheetConfig {
 	std::string name;
 	std::string texture;
-	std::unordered_map<std::string, SpriteSheetEntryConfig> entries;
+	int texture_id;
+	std::vector<SpriteSheetEntryConfig> entries;
+	std::unordered_map<std::string, int> entry_ids;
+};
+
+template<typename ConfigType>
+class AssetDbContainer {
+public:
+	AssetDbContainer() {}
+	~AssetDbContainer() {}
+
+	int add(std::string name, ConfigType v) {
+		int id = _configs.size();
+		_ids[name] = id;
+		_configs.push_back(v);
+		return id;
+	}
+
+	std::optional<int> lookup_id(std::string v) {
+		auto maybe = _ids.find(v);
+		if (maybe != _ids.end()) {
+			return maybe->second;
+		}
+		return {};
+	}
+
+	std::optional<ConfigType*> get(int id) {
+		if (id >= 0 && id < (int)_configs.size()) {
+			return &_configs.at(id);
+		}
+		return {};
+	}
+
+	std::unordered_map<std::string, int>& all() {
+		return _ids;
+	}
+private:
+	std::unordered_map<std::string, int> _ids;
+	std::vector<ConfigType> _configs;
 };
 
 class AssetManager {
@@ -55,30 +93,29 @@ public:
 
 	bool load_db(std::shared_ptr<IFileManager> file_manager, std::string path);
 
-	sf::Font* get_font(std::string font_name);
-	sf::Texture& get_texture(std::string texture_name);
+	std::unordered_map<std::string, int>& all_fonts();
+	std::unordered_map<std::string, int>& all_textures();
+	std::unordered_map<std::string, int>& all_spritesheets();
+	std::unordered_map<std::string, int>& all_spritesheet_entries(int spritesheet_id);
 
-	sf::Texture& get_spritesheet_texture(std::string spritesheet);
+	int lookup_font_id(std::string font_name);
+	int lookup_texture_id(std::string texture_name);
+	int lookup_spritesheet_id(std::string spritesheet);
+	int lookup_spritesheet_entry_id(int spritesheet, std::string entry);
 
-	SpriteSheetEntryConfig get_spritesheet_entry(std::string spritesheet, std::string entry);
+	sf::Font* get_font(int font_id);
+	sf::Texture& get_texture(int texture_id);
+	sf::Texture& get_spritesheet_texture(int spritesheet_id);
+	SpriteSheetEntryConfig& get_spritesheet_entry(int spritesheet_id, int entry_id);
 
 private:
-	template <typename T>
-	std::optional<T> _get_db(std::string name) {
-		std::unordered_map<std::string, T>& values = std::get<std::unordered_map<std::string, T>>(_db);
-		auto it = values.find(name);
-		if (it == values.end()) {
-			return {};
-		}
-		return it->second;
-	}
 	std::tuple<
-		std::unordered_map<std::string, FontConfig>,
-		std::unordered_map<std::string, SoundConfig>,
-		std::unordered_map<std::string, TextureConfig>,
-		std::unordered_map<std::string, SpriteSheetConfig>
+		AssetDbContainer<FontConfig>,
+		AssetDbContainer<SoundConfig>,
+		AssetDbContainer<TextureConfig>,
+		AssetDbContainer<SpriteSheetConfig>
 	> _db;
 
-	std::unordered_map<std::string, sf::Font> _fonts;
-	std::unordered_map<std::string, sf::Texture> _textures;
+	std::unordered_map<int, sf::Font> _fonts;
+	std::unordered_map<int, sf::Texture> _textures;
 };

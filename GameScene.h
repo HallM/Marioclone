@@ -86,6 +86,7 @@ private:
 	void AddCoin(int quantity);
 	void FragmentEntity(MattECS::EntityID entity);
 	void DestroyEntity(MattECS::EntityID entity);
+	void SetEntityAnimation(MattECS::EntityID entity, GameManager* gm, int sheet_id, int animation_id);
 
 	std::shared_ptr<Program> GetScript(std::string name);
 	MattScript::Compiler _script_compiler;
@@ -96,6 +97,9 @@ private:
 	int _coins;
 
 	Map _level;
+
+	sf::Text _coins_text;
+
 
 	sf::RenderTexture _render_texture;
 	sf::View _camera;

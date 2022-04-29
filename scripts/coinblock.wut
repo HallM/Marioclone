@@ -1,6 +1,9 @@
 let coins: mut s32
+let coin_layer: mut s32
 
 fn onCollide(event: mut ref OnCollisionEvent) {
+	let animation: mut ref SpriteSheetEntryConfig
+
 	if event.collidedTransform.position.y <= event.myTransform.position.y {
 		return void
 	}
@@ -12,7 +15,40 @@ fn onCollide(event: mut ref OnCollisionEvent) {
 	if coins <= 0 {
 		return void
 	}
-	print_s32(coins)
+
 	event.scene.AddCoin(1)
 	coins -= 1
+
+	let coinX: mut f32
+	let coinY: mut f32
+	coinX = event.myTransform.position.x + 0.0
+	coinY = event.myTransform.position.y - event.myAABB.half_size.y
+	print_f32(coinX)
+	print_f32(coinY)
+	spawnCoin(event.gm, event.manager, coinX, coinY)
+
+	if coins <= 0 {
+		event.scene.SetEntityAnimation(event.myID, event.gm, AssetsSpritesheets::OutdoorTilesheet, Assets_OutdoorTilesheet::UsedBlock)
+	}
+}
+
+fn spawnCoin(gm: mut ref GameManager, em: mut ref EntityManager, centerX: mut f32, bottomY: mut f32) {
+	let centerY: mut f32
+	let coin: mut EntityID
+	let texture: mut ref Texture
+	let animation: mut ref SpriteSheetEntryConfig
+
+	texture = gm.GetSpritesheetTexture(AssetsSpritesheets::OutdoorTilesheet)
+	animation = gm.GetAnimationConfig(AssetsSpritesheets::OutdoorTilesheet, Assets_OutdoorTilesheet::Coin)
+
+	centerY = bottomY - 8.0
+
+	coin = em.New()
+	em.Add_Transform(coin, centerX, centerY)
+	em.Add_Movement(coin, 0.0, -3.0)
+	em.Add_Gravity(coin)
+	em.Add_Sprite(coin, texture, animation)
+	em.Add_ZIndex(coin, coin_layer)
+	em.Add_Animation(coin, Assets_OutdoorTilesheet::Coin, animation, true, false)
+	em.Add_Lifetime(coin, 60)
 }

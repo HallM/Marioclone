@@ -26,6 +26,11 @@ std::string MARIO_STAND_ANIMATION = "Stand";
 std::string MARIO_RUN_ANIMATION = "Run";
 std::string MARIO_FALL_ANIMATION = "Jump";
 
+int MARIO_SPRITESHEET_ID;
+int MARIO_STAND_ANIMATION_ID;
+int MARIO_RUN_ANIMATION_ID;
+int MARIO_FALL_ANIMATION_ID;
+
 //
 // Ideas:
 // 2. Advanced tile map where we combine AABBs
@@ -58,6 +63,7 @@ void print_s32(int x) {
 }
 
 struct OnCollisionEvent {
+	GameManager* gm;
 	MattECS::EntityManager* manager;
 	GameScene* scene;
 	MattECS::EntityID myID;
@@ -67,6 +73,10 @@ struct OnCollisionEvent {
 	const AABB* collidedAABB;
 	const Transform* collidedTransform;
 };
+void check_collider(OnCollisionEvent* x) {
+    std::cout << (size_t)x << "\n";
+    std::cout << (size_t)x->gm << "\n";
+}
 
 struct OnCollisionHandler {
 	typedef std::function<void(VM&, VMFixedStack&, OnCollisionEvent*)> FHandler;
@@ -77,6 +87,14 @@ struct OnCollisionHandler {
 	OnCollisionHandler() {}
 	OnCollisionHandler(std::shared_ptr<Program> sc, std::shared_ptr<VMFixedStack> st, FHandler h) : script(sc), state(st), handler(h) {}
 };
+
+SpriteSheetEntryConfig* fetch_animation_config(GameManager* gm, int sheet_id, int animation_id) {
+	return &gm->asset_manager().get_spritesheet_entry(sheet_id, animation_id);
+}
+
+sf::Texture* get_spritesheet_texture(GameManager* gm, int sheet_id) {
+	return &gm->asset_manager().get_spritesheet_texture(sheet_id);
+}
 
 GameScene::GameScene(const Map level) :
 	_render_texture(),
@@ -134,7 +152,18 @@ GameScene::GameScene(const Map level) :
 	_script_compiler
 		.build_struct<GameScene>("GameScene")
 		.build();
+	_script_compiler
+		.build_struct<GameManager>("GameManager")
+		.build();
 
+	_script_compiler
+		.build_struct<std::string>("String")
+		.build();
+
+	_script_compiler
+		.build_struct<SpriteSheetEntryConfig>("SpriteSheetEntryConfig")
+		.build();
+		
 	_script_compiler
 		.build_struct<sf::Vector2f>("Vec2f")
 		.add_member<float>("x", offsetof(sf::Vector2f, x))
@@ -159,8 +188,16 @@ GameScene::GameScene(const Map level) :
 		.add_member<sf::Vector2f>("velocity", offsetof(Movement, velocity))
 		.build();
 
+	_script_compiler.build_struct<Gravity>("Gravity").build();
+	_script_compiler.build_struct<ZIndex>("ZIndex").build();
+	_script_compiler.build_struct<Sprite>("Sprite").build();
+	_script_compiler.build_struct<Animation>("Animation").build();
+
+	_script_compiler.build_struct<sf::Texture>("Texture").build();
+
     _script_compiler
 		.build_struct<OnCollisionEvent>("OnCollisionEvent")
+		.add_member<GameManager*>("gm", offsetof(OnCollisionEvent, gm))
 		.add_member<MattECS::EntityManager*>("manager", offsetof(OnCollisionEvent, manager))
 		.add_member<GameScene*>("scene", offsetof(OnCollisionEvent, scene))
 		.add_member<MattECS::EntityID>("myID", offsetof(OnCollisionEvent, myID))
@@ -173,18 +210,43 @@ GameScene::GameScene(const Map level) :
 
 	_script_compiler.import_method<void,float>("print_f32", print_f32);
 	_script_compiler.import_method<void,int>("print_s32", print_s32);
+	_script_compiler.import_method<void,OnCollisionEvent*>("check_collider", check_collider);
 
 	_script_compiler.import_scoped_method<Transform*,MattECS::EntityManager*,MattECS::EntityID>(
 		"EntityManager", "mut_transform", std::mem_fn(&MattECS::EntityManager::mut<Transform>));
 	_script_compiler.import_scoped_method<const Movement*,MattECS::EntityManager*,MattECS::EntityID>(
 		"EntityManager", "movement", std::mem_fn(&MattECS::EntityManager::getptr<Movement>));
 
+	_script_compiler.import_scoped_method<SpriteSheetEntryConfig*,GameManager*,int,int>(
+		"GameManager", "GetAnimationConfig", fetch_animation_config);
+	_script_compiler.import_scoped_method<sf::Texture*,GameManager*,int>(
+		"GameManager", "GetSpritesheetTexture", get_spritesheet_texture);
+
 	_script_compiler.import_scoped_method<void,GameScene*,int>(
-			"GameScene", "AddCoin", std::mem_fn(&GameScene::AddCoin));
+		"GameScene", "AddCoin", std::mem_fn(&GameScene::AddCoin));
 	_script_compiler.import_scoped_method<void,GameScene*,MattECS::EntityID>(
-			"GameScene", "DestroyEntity", std::mem_fn(&GameScene::DestroyEntity));
+		"GameScene", "DestroyEntity", std::mem_fn(&GameScene::DestroyEntity));
 	_script_compiler.import_scoped_method<void,GameScene*,MattECS::EntityID>(
-			"GameScene", "FragmentEntity", std::mem_fn(&GameScene::FragmentEntity));
+		"GameScene", "FragmentEntity", std::mem_fn(&GameScene::FragmentEntity));
+	_script_compiler.import_scoped_method<void,GameScene*,MattECS::EntityID,GameManager*,int,int>(
+		"GameScene", "SetEntityAnimation", std::mem_fn(&GameScene::SetEntityAnimation));
+
+	_script_compiler.import_scoped_method<MattECS::EntityID,MattECS::EntityManager*>(
+		"EntityManager", "New", std::mem_fn(&MattECS::EntityManager::entity));
+	_script_compiler.import_scoped_method<void,MattECS::EntityManager*,MattECS::EntityID,float,float>(
+		"EntityManager", "Add_Transform", std::mem_fn(&MattECS::EntityManager::add<Transform,float,float>));
+	_script_compiler.import_scoped_method<void,MattECS::EntityManager*,MattECS::EntityID,float,float>(
+		"EntityManager", "Add_Movement", std::mem_fn(&MattECS::EntityManager::add<Movement,float,float>));
+	_script_compiler.import_scoped_method<void,MattECS::EntityManager*,MattECS::EntityID>(
+		"EntityManager", "Add_Gravity", std::mem_fn(&MattECS::EntityManager::add<Gravity>));
+	_script_compiler.import_scoped_method<void,MattECS::EntityManager*,MattECS::EntityID,sf::Texture*,SpriteSheetEntryConfig*>(
+		"EntityManager", "Add_Sprite", std::mem_fn(&MattECS::EntityManager::add<Sprite,sf::Texture*,SpriteSheetEntryConfig*>));
+	_script_compiler.import_scoped_method<void,MattECS::EntityManager*,MattECS::EntityID,int>(
+		"EntityManager", "Add_ZIndex", std::mem_fn(&MattECS::EntityManager::add<ZIndex,int>));
+	_script_compiler.import_scoped_method<void,MattECS::EntityManager*,MattECS::EntityID,int,SpriteSheetEntryConfig*,bool,bool>(
+		"EntityManager", "Add_Animation", std::mem_fn(&MattECS::EntityManager::add<Animation,int,SpriteSheetEntryConfig*,bool,bool>));
+	_script_compiler.import_scoped_method<void,MattECS::EntityManager*,MattECS::EntityID,int>(
+		"EntityManager", "Add_Lifetime", std::mem_fn(&MattECS::EntityManager::add<LimitedLifetime,int>));
 
 	_script_vm = std::make_shared<VM>(VMSTACK_PAGE_SIZE);
 }
@@ -216,9 +278,31 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 
 	AssetManager& asset_manager = gm.asset_manager();
 
-	auto font = asset_manager.get_font("Roboto");
+	auto enum_builder = _script_compiler.build_enum("AssetsSpritesheets");
+	for (auto it : asset_manager.all_spritesheets()) {
+		enum_builder.add_value(it.first, it.second);
+
+		std::string sub_enum_name = "Assets_" + it.first;
+		auto subenum_builder = _script_compiler.build_enum(sub_enum_name);
+		for (auto it2 : asset_manager.all_spritesheet_entries(it.second)) {
+			subenum_builder.add_value(it2.first, it2.second);
+		}
+		subenum_builder.build();
+	}
+	enum_builder.build();
+
+	MARIO_SPRITESHEET_ID = asset_manager.lookup_spritesheet_id(MARIO_SPRITESHEET);
+	MARIO_STAND_ANIMATION_ID = asset_manager.lookup_spritesheet_entry_id(MARIO_SPRITESHEET_ID, MARIO_STAND_ANIMATION);
+	MARIO_RUN_ANIMATION_ID = asset_manager.lookup_spritesheet_entry_id(MARIO_SPRITESHEET_ID, MARIO_RUN_ANIMATION);
+	MARIO_FALL_ANIMATION_ID = asset_manager.lookup_spritesheet_entry_id(MARIO_SPRITESHEET_ID, MARIO_FALL_ANIMATION);
+
+	auto font_id = asset_manager.lookup_font_id("Roboto");
+	auto font = asset_manager.get_font(font_id);
 	_fps_text = sf::Text("0 fps", *font, 16);
-	_fps_text.setPosition(200.0f, 5.0f);
+	_fps_text.setPosition(175.0f, 5.0f);
+
+	_coins_text = sf::Text("Coins: 0", *font, 16);
+	_coins_text.setPosition(5.0f, 5.0f);
 
 	const float item_size = 16.0f;
 	const float item_half = item_size / 2.0f;
@@ -233,9 +317,9 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 		return t1.z_index < t2.z_index;
 	});
 
-	auto animation_name = MARIO_FALL_ANIMATION;
-	auto& tex = asset_manager.get_spritesheet_texture(MARIO_SPRITESHEET);
-	auto spconfig = asset_manager.get_spritesheet_entry(MARIO_SPRITESHEET, animation_name);
+	auto animation_id = MARIO_FALL_ANIMATION_ID;
+	auto tex = &asset_manager.get_spritesheet_texture(MARIO_SPRITESHEET_ID);
+	auto& spconfig = asset_manager.get_spritesheet_entry(MARIO_SPRITESHEET_ID, animation_id);
 
 	auto mario = entity_manager().entity();
 	entity_manager().add<Mortal>(mario, PLAYER_STARTING_HEALTH);
@@ -254,10 +338,9 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	entity_manager().add<ZIndex>(mario, _level.player.layer);
 	entity_manager().add<Sprite>(mario, tex, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.width, (float)spconfig.height), sf::Vector2f(0.5f, 0.5f));
 	entity_manager().add<Animation>(mario,
-		animation_name,
-		spconfig,
+		animation_id,
+		&spconfig,
 		true,
-		"",
 		false
 		);
 	_player = mario;
@@ -289,11 +372,12 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	}
 
 	for (unsigned int i = 0; i < _level.layers.size(); i++) {
-		const auto& layer = _level.layers[i];
+		auto& layer = _level.layers[i];
 
 		if (layer.tileset.texture.length() > 0) {
 			auto mape = entity_manager().entity();
-			sf::Texture& t = gm.asset_manager().get_texture(layer.tileset.texture);
+			int texid = asset_manager.lookup_texture_id(layer.tileset.texture);
+			sf::Texture& t = gm.asset_manager().get_texture(texid);
 			entity_manager().add<CTilemapRenderLayer>(mape, _level, i, t);
 			entity_manager().add<Transform>(mape, 0.0f, 0.0f);
 			entity_manager().add<ZIndex>(mape, i);
@@ -306,7 +390,7 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 		float half_h = (float)_level.tile_height / 2.0f;
 
 		// add AABBs
-		for (const auto& tile : layer.tiles) {
+		for (auto& tile : layer.tiles) {
 			if (tile.id <= 0) {
 				continue;
 			}
@@ -328,9 +412,11 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 			}
 		}
 
-		for (const auto& entity : layer.entities) {
-			auto& tex = asset_manager.get_spritesheet_texture(entity.spritesheet);
-			auto spconfig = asset_manager.get_spritesheet_entry(entity.spritesheet, entity.sprite);
+		for (auto& entity : layer.entities) {
+			int sheetid = asset_manager.lookup_spritesheet_id(entity.spritesheet);
+			int entryid = asset_manager.lookup_spritesheet_entry_id(sheetid, entity.sprite);
+			auto tex = &asset_manager.get_spritesheet_texture(sheetid);
+			auto& spconfig = asset_manager.get_spritesheet_entry(sheetid, entryid);
 
 			auto e = entity_manager().entity();
 			entity_manager().add<Transform>(e, (float)(entity.x * _level.tile_width) + half_w, (float)(entity.y * _level.tile_height) + half_h);
@@ -341,18 +427,17 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 
 			entity_manager().add<Sprite>(e, tex, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.width, (float)spconfig.height), sf::Vector2f(0.5f, 0.5f));
 			entity_manager().add<Animation>(e,
-				animation_name,
-				spconfig,
+				entryid,
+				&spconfig,
 				true,
-				"",
 				false
 			);
 			entity_manager().add<ZIndex>(e, i);
 
-			for (const auto& s : entity.scripts) {
+			for (auto& s : entity.scripts) {
 				std::shared_ptr<Program> script = GetScript(s.path);
 				std::shared_ptr<VMFixedStack> state = script->generate_state();
-				for (auto it : s.vars) {
+				for (auto& it : s.vars) {
 					if (std::holds_alternative<int>(it.second)) {
 					    auto address = script->get_global_address(it.first);
 						*state->at<int>(address) = std::get<int>(it.second);
@@ -360,6 +445,10 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 					else if (std::holds_alternative<float>(it.second)) {
 					    auto address = script->get_global_address(it.first);
 						*state->at<float>(address) = std::get<float>(it.second);
+					}
+					else if (std::holds_alternative<std::string>(it.second)) {
+					    auto address = script->get_global_address(it.first);
+						*state->at<std::string*>(address) = &std::get<std::string>(it.second);
 					}
 				}
 
@@ -609,12 +698,12 @@ void GameScene::DetectCollisionSystem(GameManager& gm) {
 
 				if (auto maybehandler = entity_manager().tryGet<OnCollisionHandler>(e1)) {
 					auto handler = maybehandler.value();
-					OnCollisionEvent evt = {&entity_manager(), this, e1, &aabb1, &t1, e2, &aabb2, &t2};
+					OnCollisionEvent evt = {&gm, &entity_manager(), this, e1, &aabb1, &t1, e2, &aabb2, &t2};
 					handler->handler(*_script_vm, *handler->state, &evt);
 				}
 				if (auto maybehandler = entity_manager().tryGet<OnCollisionHandler>(e2)) {
 					auto handler = maybehandler.value();
-					OnCollisionEvent evt = {&entity_manager(), this, e2, &aabb2, &t2, e1, &aabb1, &t1};
+					OnCollisionEvent evt = {&gm, &entity_manager(), this, e2, &aabb2, &t2, e1, &aabb1, &t1};
 					handler->handler(*_script_vm, *handler->state, &evt);
 				}
 
@@ -866,30 +955,29 @@ void GameScene::SetPlayerAnimationSystem(GameManager& gm) {
 		it.mut<Transform>().scale = sf::Vector2f(1.0f, 1.0f);
 	}
 
-	std::string change_animation = "";
+	int change_animation = -1;
 	if (m.velocity.y != 0) {
-		change_animation = MARIO_FALL_ANIMATION;
+		change_animation = MARIO_FALL_ANIMATION_ID;
 	}
 	else if (m.velocity.x != 0) {
-		change_animation = MARIO_RUN_ANIMATION;
+		change_animation = MARIO_RUN_ANIMATION_ID;
 	}
 	else {
-		change_animation = MARIO_STAND_ANIMATION;
+		change_animation = MARIO_STAND_ANIMATION_ID;
 	}
 
-	if (change_animation != "" && ani.name != change_animation) {
-		auto spconfig = gm.asset_manager().get_spritesheet_entry(MARIO_SPRITESHEET, change_animation);
+	if (change_animation > 0 && ani.id != change_animation) {
+		auto& spconfig = gm.asset_manager().get_spritesheet_entry(MARIO_SPRITESHEET_ID, change_animation);
 
 		Animation& ani = it.mut<Animation>();
 		Sprite& s = it.mut<Sprite>();
 
 		s.set_rect(sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.width, (float)spconfig.height));
-		ani.config = spconfig;
+		ani.id = change_animation;
+		ani.config = &spconfig;
 		ani.current_frame = 0;
 		ani.destroyAfter = false;
 		ani.loop = true;
-		ani.name = change_animation;
-		ani.next_animation = "";
 	}
 }
 // Run the animations on objects and yes this is FixedUpdate, not render update.
@@ -897,20 +985,20 @@ void GameScene::SetPlayerAnimationSystem(GameManager& gm) {
 void GameScene::AnimationSystem(GameManager& gm) {
 	auto asq = entity_manager().query<Animation, Sprite>();
 	for (auto it = asq.begin(); it != asq.end(); ++it) {
-		if (it.value<Animation>().config.animation_frames <= 1) {
+		if (it.value<Animation>().config->animation_frames <= 1) {
 			continue;
 		}
 		Animation& ani = it.mut<Animation>();
 		Sprite& s = it.mut<Sprite>();
 		ani.current_frame++;
-		auto actual_frame = ani.current_frame / ani.config.animation_rate;
-		if (actual_frame >= ani.config.animation_frames) {
+		auto actual_frame = ani.current_frame / ani.config->animation_rate;
+		if (actual_frame >= ani.config->animation_frames) {
 			ani.current_frame = 0;
 			actual_frame = 0;
 		}
 
-		int x = (actual_frame * (ani.config.width + ani.config.animation_offset_x)) + ani.config.x;
-		s.set_rect(sf::FloatRect((float)x, (float)ani.config.y, (float)ani.config.width, (float)ani.config.height));
+		int x = (actual_frame * (ani.config->width + ani.config->animation_offset_x)) + ani.config->x;
+		s.set_rect(sf::FloatRect((float)x, (float)ani.config->y, (float)ani.config->width, (float)ani.config->height));
 	}
 
 	auto cq = entity_manager().query<CTilemapRenderLayer>();
@@ -994,6 +1082,11 @@ void GameScene::DrawGUI(GameManager& gm, sf::RenderWindow& window, int delta_ms)
 	}
 
 	_render_texture.draw(_fps_text);
+
+	std::stringstream coinbuilder;
+	coinbuilder << "Coins: " << _coins;
+	_coins_text.setString(coinbuilder.str());
+	_render_texture.draw(_coins_text);
 }
 
 void GameScene::DrawBuffer(GameManager& gm, sf::RenderWindow& window, int delta_ms) {
@@ -1020,41 +1113,55 @@ void GameScene::FragmentEntity(MattECS::EntityID entity) {
 
 	auto spconfig = animation->config;
 
-	float angle_iter = 360.0f / (float)num_fragments;
-	float angle = 0;
 	float divider = (float)num_fragments / 2.0f;
-	float size_x = 16.0f / divider;
+	float size_x = spconfig->width / divider;
 	float half_w = size_x / 2.0f;
-	float size_y = 16.0f / divider;
+	float size_y = spconfig->height / divider;
 	float half_h = size_y / 2.0f;
 
-	for (int i = 0; i < num_fragments; i++) {
-		float c = cosf(angle * DEG_TO_RAD);
-		float s = sinf(angle * DEG_TO_RAD);
-		float posx = transform.position.x + (c * size_x);
-		float posy = transform.position.y + (s * size_y);
-		angle += angle_iter;
+	float texhalf_w = (spconfig->width / 2.0f);
+	float texhalf_h = (spconfig->height / 2.0f);
 
-		float speed_x = c * 0.1f;
-		float speed_y = (s * 1.0f) + 0.5f;
+	for (float y = -texhalf_h; y < texhalf_h; y += size_y) {
+		for (float x = -texhalf_w; x < texhalf_w; x += size_x) {
+			float posx = transform.position.x + x + half_w;
+			float posy = transform.position.y + y + half_h;
+			float speed_x = (x + half_w) * 0.1f;
+			float speed_y = (y + half_h) * 0.1f - 0.3f;
+			float texleft = spconfig->x + x + texhalf_w;
+			float textop = spconfig->y + y + texhalf_h;
 
-		auto e = entity_manager().entity();
-		entity_manager().add<Transform>(e, posx, posy);
-		entity_manager().add<Gravity>(e);
-		entity_manager().add<LimitedLifetime>(e, 60);
-		entity_manager().add<Movement>(e, speed_x, speed_y);
-		entity_manager().add<Sprite>(e, *sprite->t, sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)size_x, (float)size_y), sf::Vector2f(0.5f, 0.5f));
-		entity_manager().add<Animation>(e,
-			spconfig.name,
-			spconfig,
-			true,
-			"",
-			false
-		);
-		entity_manager().add<ZIndex>(e, zindex.z_index);
+			auto e = entity_manager().entity();
+			entity_manager().add<Transform>(e, posx, posy);
+			entity_manager().add<Gravity>(e);
+			entity_manager().add<LimitedLifetime>(e, 60);
+			entity_manager().add<Movement>(e, speed_x, speed_y);
+			entity_manager().add<Sprite>(e, sprite->t, sf::FloatRect(texleft, textop, size_x, size_y), sf::Vector2f(0.5f, 0.5f));
+			entity_manager().add<Animation>(e,
+				animation->id,
+				spconfig,
+				true,
+				false
+			);
+			entity_manager().add<ZIndex>(e, zindex.z_index);
+		}
 	}
 }
 
 void GameScene::DestroyEntity(MattECS::EntityID entity) {
 	entity_manager().remove_all(entity);
+}
+
+void GameScene::SetEntityAnimation(MattECS::EntityID entity, GameManager* gm, int sheet_id, int animation_id) {
+	auto spconfig = gm->asset_manager().get_spritesheet_entry(sheet_id, animation_id);
+
+	Animation* ani = entity_manager().mut<Animation>(entity);
+	Sprite* s = entity_manager().mut<Sprite>(entity);
+
+	s->set_rect(sf::FloatRect((float)spconfig.x, (float)spconfig.y, (float)spconfig.width, (float)spconfig.height));
+	ani->id = animation_id;
+	ani->config = &spconfig;
+	ani->current_frame = 0;
+	ani->destroyAfter = false;
+	ani->loop = true;
 }

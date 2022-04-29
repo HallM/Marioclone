@@ -24,7 +24,7 @@ struct Gravity {
 
 struct LimitedLifetime {
 	int frames;
-	LimitedLifetime() {}
+	LimitedLifetime() : frames(0) {}
 	LimitedLifetime(int f) : frames(f) {}
 };
 
@@ -36,8 +36,11 @@ struct Sprite {
 	Sprite() : t(), va(), origin(0.5f, 0.5f) {}
 	// The origin accepts a 0-1 where 0 is top/left and 1 is bottom/right.
 	// The midpoint is 0.5,0.5.
-	Sprite(sf::Texture& texture, sf::FloatRect texture_rect, sf::Vector2f o) : t(&texture), va(sf::PrimitiveType::TriangleStrip, 4), origin(-o.x * texture_rect.width, -o.y * texture_rect.height) {
+	Sprite(sf::Texture* texture, sf::FloatRect texture_rect, sf::Vector2f o) : t(texture), va(sf::PrimitiveType::TriangleStrip, 4), origin(-o.x * texture_rect.width, -o.y * texture_rect.height) {
 		set_rect(texture_rect);
+	}
+	Sprite(sf::Texture* texture, SpriteSheetEntryConfig* sprite) : t(texture), va(sf::PrimitiveType::TriangleStrip, 4), origin(-0.5f * (float)sprite->width, -0.5f * (float)sprite->height) {
+		set_rect(sf::FloatRect((float)sprite->x, (float)sprite->y, (float)sprite->width, (float)sprite->height));
 	}
 
 	void set_rect(sf::FloatRect texture_rect) {
@@ -67,21 +70,19 @@ struct Sprite {
 };
 
 struct Animation {
-	std::string name;
-	SpriteSheetEntryConfig config;
+	int id;
+	SpriteSheetEntryConfig* config;
 	unsigned int current_frame;
 	bool loop;
-	std::string next_animation;
 	bool destroyAfter;
 
-	Animation() : name(""), config(), current_frame(0), loop(false), next_animation(""), destroyAfter(true) {}
+	Animation() : id(-1), config(), current_frame(0), loop(false), destroyAfter(true) {}
 	Animation(
-		std::string _name,
-		SpriteSheetEntryConfig _config,
+		int _id,
+		SpriteSheetEntryConfig* _config,
 		bool _loop,
-		std::string _next,
 		bool _destroy
-	) : name(_name), config(_config), current_frame(0), loop(_loop), next_animation(_next), destroyAfter(_destroy) {}
+	) : id(_id), config(_config), current_frame(0), loop(_loop), destroyAfter(_destroy) {}
 };
 
 struct Transform {

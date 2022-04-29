@@ -50,7 +50,7 @@ struct TileSetConfig {
 struct Script {
 	std::string path;
 	std::vector<std::string> events;
-	std::unordered_map<std::string, std::variant<float,int>> vars;
+	std::unordered_map<std::string, std::variant<float,int,std::string>> vars;
 };
 
 struct PlayerConfig {

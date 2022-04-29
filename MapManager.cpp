@@ -94,17 +94,19 @@ MapManager::parse_script(toml::node_view<toml::node> n) {
 		}
 	}
 
-	std::unordered_map<std::string, std::variant<float,int>> vars;
+	std::unordered_map<std::string, std::variant<float,int,std::string>> vars;
 	if (auto varconfig = n["vars"].as_table()) {
 		for (auto it = varconfig->begin(); it != varconfig->end(); it++) {
 			std::string key(it->first.str());
 			if (it->second.is_floating_point()) {
 				vars[key] = it->second.value_or<float>(0.0f);
 			}
-			else {
+			else if (it->second.is_integer()) {
 				vars[key] = it->second.value_or<int>(0);
 			}
-		
+			else if (it->second.is_string()) {
+				vars[key] = it->second.value_or<std::string>("");
+			}
 		}
 	}
 

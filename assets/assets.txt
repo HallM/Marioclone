@@ -32,6 +32,25 @@ height = 16
 animation_frames = 3
 animation_rate = 8
 
+[[spritesheets.sprites]]
+name = "UsedBlock"
+x = 192
+y = 32
+width = 16
+height = 16
+animation_frames = 0
+animation_rate = 0
+
+[[spritesheets.sprites]]
+name = "Coin"
+x = 144
+y = 48
+width = 16
+height = 16
+animation_frames = 3
+animation_rate = 8
+
+
 [[spritesheets]]
 name = "MarioSmall"
 texture = "MarioSmall"
