@@ -479,6 +479,7 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	// physics
 
 	entity_manager().finalize_update();
+
 	return {};
 }
 
@@ -966,7 +967,7 @@ void GameScene::SetPlayerAnimationSystem(GameManager& gm) {
 		change_animation = MARIO_STAND_ANIMATION_ID;
 	}
 
-	if (change_animation > 0 && ani.id != change_animation) {
+	if (change_animation >= 0 && ani.id != change_animation) {
 		auto& spconfig = gm.asset_manager().get_spritesheet_entry(MARIO_SPRITESHEET_ID, change_animation);
 
 		Animation& ani = it.mut<Animation>();
@@ -1153,7 +1154,7 @@ void GameScene::DestroyEntity(MattECS::EntityID entity) {
 }
 
 void GameScene::SetEntityAnimation(MattECS::EntityID entity, GameManager* gm, int sheet_id, int animation_id) {
-	auto spconfig = gm->asset_manager().get_spritesheet_entry(sheet_id, animation_id);
+	auto& spconfig = gm->asset_manager().get_spritesheet_entry(sheet_id, animation_id);
 
 	Animation* ani = entity_manager().mut<Animation>(entity);
 	Sprite* s = entity_manager().mut<Sprite>(entity);

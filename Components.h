@@ -30,16 +30,16 @@ struct LimitedLifetime {
 
 struct Sprite {
 	sf::Texture* t;
-	sf::VertexArray va;
+	sf::Vertex va[4];
 	sf::Vector2f origin;
 
 	Sprite() : t(), va(), origin(0.5f, 0.5f) {}
 	// The origin accepts a 0-1 where 0 is top/left and 1 is bottom/right.
 	// The midpoint is 0.5,0.5.
-	Sprite(sf::Texture* texture, sf::FloatRect texture_rect, sf::Vector2f o) : t(texture), va(sf::PrimitiveType::TriangleStrip, 4), origin(-o.x * texture_rect.width, -o.y * texture_rect.height) {
+	Sprite(sf::Texture* texture, sf::FloatRect texture_rect, sf::Vector2f o) : t(texture), va(), origin(-o.x * texture_rect.width, -o.y * texture_rect.height) {
 		set_rect(texture_rect);
 	}
-	Sprite(sf::Texture* texture, SpriteSheetEntryConfig* sprite) : t(texture), va(sf::PrimitiveType::TriangleStrip, 4), origin(-0.5f * (float)sprite->width, -0.5f * (float)sprite->height) {
+	Sprite(sf::Texture* texture, SpriteSheetEntryConfig* sprite) : t(texture), va(), origin(-0.5f * (float)sprite->width, -0.5f * (float)sprite->height) {
 		set_rect(sf::FloatRect((float)sprite->x, (float)sprite->y, (float)sprite->width, (float)sprite->height));
 	}
 
@@ -65,7 +65,8 @@ struct Sprite {
 		sf::RenderStates state;
 		state.texture = t;
 		state.transform = transform;
-		target.draw(va, state);
+		// target.draw(va, state);
+		target.draw(va, 4, sf::PrimitiveType::TriangleStrip, state);
 	}
 };
 

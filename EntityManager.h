@@ -11,202 +11,11 @@
 #include <unordered_set>
 #include <vector>
 
-#include "timsort.hpp"
+#include "ComponentContainer.h"
 
 namespace MattECS {
 	typedef size_t EntityID;
-
-	class IComponentManager {
-	public:
-		virtual ~IComponentManager() = default;
-		virtual void update_all() = 0;
-		virtual void delete_item(EntityID id) = 0;
-	};
-
-	template <typename C>
-	class ComponentManager : public IComponentManager {
-	public:
-		class iterator {
-			size_t _index = 0;
-			ComponentManager<C>* _c = nullptr;
-		public:
-			explicit iterator(ComponentManager<C>* c, size_t i) : _c(c), _index(i) {}
-			bool is_end() const { return _index >= _c->_ids.size(); }
-			bool has_next() const { return (_index + 1) < _c->_ids.size(); }
-			iterator& operator++() { _index++; return *this; }
-			iterator operator++(int) { iterator it(_c, _index); _index++; return it; }
-			iterator& operator--() { _index--; return *this; }
-			iterator operator--(int) { iterator it(_c, _index); _index--; return it; }
-			bool operator==(iterator other) const { return (is_end() && other.is_end()) || _index == other._index; }
-			bool operator!=(iterator other) const { return !((is_end() && other.is_end()) || _index == other._index); }
-			EntityID entity() const { return _c->_ids[_index]; }
-			C& value() const { return _c->_values[_index]; }
-			std::optional<size_t> index() const {
-				if (is_end()) { return {}; }
-				return _index;
-			}
-		};
-
-		ComponentManager() : _has_sorter(false), _changed(false), _has_on_change(false) {}
-		virtual ~ComponentManager() {}
-
-		iterator begin() { return iterator(this, 0); }
-		iterator end() { return iterator(this, _ids.size()); }
-		iterator find(EntityID id) {
-			auto it = _id_to_index.find(id);
-			if (it == _id_to_index.end()) {
-				return end();
-			}
-			size_t index = it->second;
-			return iterator(this, index);
-		}
-
-		bool has(EntityID id) const {
-			return _id_to_index.find(id) != _id_to_index.end();
-		}
-
-		const C& cvalue(EntityID id) {
-			auto index = _id_to_index[id];
-			return _values[index];
-		}
-		C& value(EntityID id) {
-			auto index = _id_to_index[id];
-			set_changed(index);
-			return _values[index];
-		}
-
-		C& at(size_t index) {
-			return _values[index];
-		}
-
-		virtual void delete_item(EntityID id) {
-			if (_id_to_index.find(id) != _id_to_index.end()) {
-				_changed = true;
-				_deleted_items.insert(id);
-			}
-		}
-		template <typename... Args>
-		void add_item(EntityID id, Args&&... args) {
-			if (_id_to_index.find(id) == _id_to_index.end()) {
-				_changed = true;
-				_new_items.emplace(std::piecewise_construct,
-					std::forward_as_tuple(id), std::forward_as_tuple(args...));
-			}
-		}
-
-		void set_changed(size_t index) {
-			_changed = true;
-			_dirty[index] = true;
-		}
-
-		void set_sorter(std::function<bool(const C&, const C&)> less) {
-			_less = less;
-			_has_sorter = true;
-			_changed = true;
-		}
-		void set_on_change(std::function<void(EntityID, const C&)> on_change) {
-			_has_on_change = true;
-			_on_change = on_change;
-		}
-
-		virtual void update_all() {
-			for (auto id : _deleted_items) {
-				unsigned int index = _id_to_index[id];
-				unsigned int last = _ids.size() - 1;
-				EntityID swap_width = _ids[last];
-
-				// swap the back with the item deleted before removing entries.
-				std::swap(_ids[index], _ids[last]);
-				std::swap(_values[index], _values[last]);
-				_dirty[index] = _dirty[last];
-				_id_to_index[swap_width] = index;
-
-				_ids.pop_back();
-				_values.pop_back();
-				_dirty.pop_back();
-				_id_to_index.erase(id);
-			}
-			_deleted_items.clear();
-
-			for (auto& item : _new_items) {
-				unsigned int index = _ids.size();
-				auto id = item.first;
-				_ids.push_back(id);
-				_values.push_back(item.second);
-				_dirty.push_back(true);
-				_id_to_index[id] = index;
-			}
-			_new_items.clear();
-
-			if (_changed) {
-				if (_has_on_change) {
-					for (size_t i = 0; i < _dirty.size(); i++) {
-						_dirty[i] = false;
-						_on_change(_ids[i], _values[i]);
-					}
-				}
-				if (_has_sorter) {
-					_sort();
-				}
-				_changed = false;
-			}
-		}
-
-	private:
-		void _sort() {
-			std::vector<size_t> indices(_ids.size());
-			for (size_t i = 0; i < _ids.size(); i++) {
-				indices[i] = i;
-			}
-			gfx::timsort(
-				indices,
-				_less,
-				[this](size_t a) -> const C& {
-					return _values[a];
-				}
-			);
-			_apply_sort<EntityID>(_ids, indices);
-			_apply_sort<C>(_values, indices);
-
-			for (unsigned int i = 0; i < _ids.size(); i++) {
-				_id_to_index[_ids[i]] = i;
-			}
-		}
-
-		template <typename V>
-		void _apply_sort(std::vector<V>& tosort, const std::vector<size_t>& indices) {
-			std::vector<bool> sorted(tosort.size());
-			for (size_t i = 0; i < tosort.size(); i++) {
-				if (sorted[i]) { continue; }
-				sorted[i] = true;
-				size_t prev = i;
-				size_t j = indices[prev];
-				while (i != j) {
-					std::swap(tosort[prev], tosort[j]);
-					sorted[j] = true;
-					prev = j;
-					j = indices[prev];
-				}
-			}
-		}
-
-		bool _has_sorter;
-		std::function<bool(const C&, const C&)> _less;
-
-		// _changed is set if any are dirty
-		bool _changed;
-		// track which elements changed or at least what mut()s were called.
-		std::vector<bool> _dirty;
-		bool _has_on_change;
-		std::function<void(EntityID, const C&)> _on_change;
-
-		std::unordered_map<EntityID, unsigned int> _id_to_index;
-		std::vector<EntityID> _ids;
-		std::vector<C> _values;
-
-		std::unordered_map<EntityID, C> _new_items;
-		std::unordered_set<EntityID> _deleted_items;
-	};
+	const size_t MAX_ENTITIES = 10000;
 
 	class EntityManager {
 	public:
@@ -215,7 +24,7 @@ namespace MattECS {
 		public:
 			class iterator {
 			public:
-				iterator(ComponentManager<CFirst>::iterator it, ComponentManager<CFirst>::iterator end, std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...>& cmanagers, bool is_optional[1 + sizeof...(COthers)]) : _it(it), _end(end), _cmanagers(cmanagers) {
+				iterator(ComponentContainer<CFirst>::iterator it, ComponentContainer<CFirst>::iterator end, std::tuple<ComponentContainer<CFirst>*, ComponentContainer<COthers>*...>& cmanagers, bool is_optional[1 + sizeof...(COthers)]) : _it(it), _end(end), _cmanagers(cmanagers) {
 					for (unsigned int i = 1; i < sizeof...(COthers) + 1; i++) {
 						_is_optional[i] = is_optional[i];
 					}
@@ -235,22 +44,40 @@ namespace MattECS {
 				bool operator!=(iterator other) const { return _it != other._it; }
 
 				EntityID entity() const { return _it.entity(); }
+
+				// C++ accessors by type
 				template <typename C>
 				bool has() {
 					return _indices[_cindex<C, CFirst, COthers...>()].has_value();
 				}
-
 				template <typename C>
 				const C& value() {
 					auto index = _indices[_cindex<C, CFirst, COthers...>()].value();
-					return std::get<ComponentManager<C>*>(_cmanagers)->at(index);
+					return std::get<ComponentContainer<C>*>(_cmanagers)->at(index);
 				}
-
 				template <typename C>
 				C& mut() {
 					auto index = _indices[_cindex<C, CFirst, COthers...>()].value();
-					std::get<ComponentManager<C>*>(_cmanagers)->set_changed(index);
-					return std::get<ComponentManager<C>*>(_cmanagers)->at(index);
+					std::get<ComponentContainer<C>*>(_cmanagers)->set_changed(index);
+					return std::get<ComponentContainer<C>*>(_cmanagers)->at(index);
+				}
+
+				// Script accessors by index (though I guess useful for C++ too...)
+				template <size_t I>
+				bool has() {
+					return _indices[I].has_value();
+				}
+				template <size_t I>
+				const auto value() {
+					auto index = _indices[I].value();
+					return &std::get<I>(_cmanagers)->at(index);
+				}
+				template <size_t I>
+				auto mut() {
+					auto index = _indices[I].value();
+					auto cm = std::get<I>(_cmanagers);
+					cm->set_changed(index);
+					return cm->at(index);
 				}
 			private:
 				void _next() {
@@ -266,15 +93,15 @@ namespace MattECS {
 					}
 					auto id = _it.entity();
 					_indices[0] = _it.index();
-					((_indices[Is+1] = std::get<ComponentManager<COthers>*>(_cmanagers)->find(id).index()), ...);
+					((_indices[Is+1] = std::get<ComponentContainer<COthers>*>(_cmanagers)->find(id).index()), ...);
 					_has_all = ((_is_optional[Is+1] || _indices[Is+1]) && ...);
 				}
 				bool _has_all;
 				std::optional<size_t> _indices[1 + sizeof...(COthers)];
-				ComponentManager<CFirst>::iterator _it;
-				ComponentManager<CFirst>::iterator _end;
+				ComponentContainer<CFirst>::iterator _it;
+				ComponentContainer<CFirst>::iterator _end;
 				bool _is_optional[1 + sizeof...(COthers)];
-				std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...>& _cmanagers;
+				std::tuple<ComponentContainer<CFirst>*, ComponentContainer<COthers>*...>& _cmanagers;
 
 				template<typename CT, typename CH, typename... CR>
 				constexpr size_t _cindex() {
@@ -289,7 +116,7 @@ namespace MattECS {
 				}
 			};
 
-			Querier(std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...> managers) : _cmanagers(managers) {
+			Querier(std::tuple<ComponentContainer<CFirst>*, ComponentContainer<COthers>*...> managers) : _cmanagers(managers) {
 				for (size_t i = 0; i < 1 + sizeof...(COthers); ++i) {
 					_is_optional[i] = false;
 				}
@@ -304,19 +131,19 @@ namespace MattECS {
 			}
 
 			iterator begin() {
-				auto cm = std::get<ComponentManager<CFirst>*>(_cmanagers);
+				auto cm = std::get<ComponentContainer<CFirst>*>(_cmanagers);
 				return iterator(cm->begin(), cm->end(), _cmanagers, _is_optional);
 			}
 			iterator end() {
-				auto cm = std::get<ComponentManager<CFirst>*>(_cmanagers);
+				auto cm = std::get<ComponentContainer<CFirst>*>(_cmanagers);
 				return iterator(cm->end(), cm->end(), _cmanagers, _is_optional);
 			}
 			iterator find(EntityID id) {
-				auto cm = std::get<ComponentManager<CFirst>*>(_cmanagers);
+				auto cm = std::get<ComponentContainer<CFirst>*>(_cmanagers);
 				return iterator(cm->find(id), cm->end(), _cmanagers, _is_optional);
 			}
 		private:
-			std::tuple<ComponentManager<CFirst>*, ComponentManager<COthers>*...> _cmanagers;
+			std::tuple<ComponentContainer<CFirst>*, ComponentContainer<COthers>*...> _cmanagers;
 			bool _is_optional[1 + sizeof...(COthers)];
 
 			template<typename CT, typename CH, typename... CR>
@@ -334,9 +161,10 @@ namespace MattECS {
 
 		EntityManager() {
 			_last_id = 0;
+			_next_component_id = 0;
 		}
 		~EntityManager() {
-			for (auto& it : _idautomanagers) {
+			for (auto& it : _components) {
 				delete it.second;
 			}
 		}
@@ -352,10 +180,20 @@ namespace MattECS {
 		}
 
 		template <typename C>
-		void register_component() {
+		size_t register_component() {
+			size_t id = _next_component_id++;
 			auto ti = std::type_index(typeid(C));
-			ComponentManager<C>* new_cm = new ComponentManager<C>();
-			_idautomanagers[ti] = new_cm;
+			ComponentContainer<C>* new_cm = new ComponentContainer<C>(MAX_ENTITIES);
+			_cpp_types[ti] = id;
+			_components[id] = new_cm;
+			// _idautomanagers[ti] = new_cm;
+			return id;
+		}
+		size_t register_script_component() {
+			size_t id = _next_component_id++;
+			ComponentContainer<char>* new_cm = new ComponentContainer<char>(MAX_ENTITIES);
+			_components[id] = new_cm;
+			return id;
 		}
 
 		EntityID entity() {
@@ -418,7 +256,7 @@ namespace MattECS {
 		}
 
 		void remove_all(EntityID id) {
-			for (auto& it : _idautomanagers) {
+			for (auto& it : _components) {
 				it.second->delete_item(id);
 			}
 		}
@@ -427,20 +265,24 @@ namespace MattECS {
 		// to avoid invalidating iterators. This will finalize added/removed
 		// components and entities.
 		void finalize_update() {
-			for (auto& it : _idautomanagers) {
+			for (auto& it : _components) {
 				it.second->update_all();
 			}
 		}
 	private:
 		template <typename C>
-		ComponentManager<C>* _manager() {
-			// return &std::get<ComponentManager<C>>(_cmanagers);
+		ComponentContainer<C>* _manager() {
 			auto ti = std::type_index(typeid(C));
-			assert(_idautomanagers.find(ti) != _idautomanagers.end());
-			return (ComponentManager<C>*)_idautomanagers[ti];
+			size_t id = _cpp_types[ti];
+			assert(_components.find(id) != _components.end());
+			return (ComponentContainer<C>*)_components[id];
 		}
 
+		// https://stackoverflow.com/questions/61281843/creating-compile-time-key-value-map-in-c
 		EntityID _last_id;
-		std::unordered_map<std::type_index, IComponentManager*> _idautomanagers;
+		// std::unordered_map<std::type_index, IComponentContainer*> _idautomanagers;
+		size_t _next_component_id;
+		std::unordered_map<std::type_index, size_t> _cpp_types;
+		std::unordered_map<size_t, IComponentContainer*> _components;
 	};
 };

@@ -5,15 +5,15 @@ fn onCollide(event: mut ref OnCollisionEvent) {
 	let animation: mut ref SpriteSheetEntryConfig
 
 	if event.collidedTransform.position.y <= event.myTransform.position.y {
-		return void
+		return
 	}
 	let mov: ref Movement = event.manager.movement(event.collidedID)
 	if mov.velocity.y > 0.0 {
-		return void
+		return
 	}
 
 	if coins <= 0 {
-		return void
+		return
 	}
 
 	event.scene.AddCoin(1)

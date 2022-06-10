@@ -117,7 +117,9 @@
     <ClInclude Include="Action.h" />
     <ClInclude Include="AssetManager.h" />
     <ClInclude Include="BaseScene.h" />
+    <ClInclude Include="BufferVector.h" />
     <ClInclude Include="Colors.h" />
+    <ClInclude Include="ComponentContainer.h" />
     <ClInclude Include="Components.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="EntityManager.h" />
