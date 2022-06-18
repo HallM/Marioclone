@@ -25,6 +25,28 @@ namespace MattECS {
 	};
 
 	template <typename C>
+	void no_orderer(std::vector<size_t>& indices, const std::vector<C>& values) {
+	}
+	template <typename C, typename bool(*Less)(const C&, const C&)>
+	void less_than_orderer(std::vector<size_t>& indices, const std::vector<C>& values) {
+		gfx::timsort(
+			indices,
+			Less,
+			[&values](size_t index) -> const C& {
+				return values.at(index);
+			}
+		);
+	}
+
+	template <typename C>
+	void no_change_handler(EntityID id, const C& obj) {
+	}
+
+	template <
+		typename C,
+		typename void(*Orderer)(std::vector<size_t>&, const std::vector<C>&) = no_orderer<C>,
+		typename void(*OnChange)(EntityID, const C&) = no_change_handler<C>
+	>
 	class ComponentContainer : public IComponentContainer {
 	public:
 		class iterator {
@@ -48,7 +70,7 @@ namespace MattECS {
 			}
 		};
 
-		ComponentContainer(size_t entities) : _has_sorter(false), _changed(false), _has_on_change(false), _values() {
+		ComponentContainer(size_t entities) : _changed(false), _values() {
 			_values.reserve(entities);
 		}
 		virtual ~ComponentContainer() {}
@@ -118,16 +140,6 @@ namespace MattECS {
 			_dirty[index] = true;
 		}
 
-		void set_sorter(std::function<bool(const C&, const C&)> less) {
-			_less = less;
-			_has_sorter = true;
-			_changed = true;
-		}
-		void set_on_change(std::function<void(EntityID, const C&)> on_change) {
-			_has_on_change = true;
-			_on_change = on_change;
-		}
-
 		virtual void update_all() {
 			for (auto id : _deleted_items) {
 				unsigned int index = _id_to_index[id];
@@ -160,13 +172,13 @@ namespace MattECS {
 			_new_items.clear();
 
 			if (_changed) {
-				if (_has_on_change) {
+				if constexpr (OnChange != no_change_handler) {
 					for (size_t i = 0; i < _dirty.size(); i++) {
 						_dirty[i] = false;
-						_on_change(_ids[i], _values.at(i));
+						OnChange(_ids[i], _values.at(i));
 					}
 				}
-				if (_has_sorter) {
+				if constexpr (Orderer != no_orderer) {
 					_sort();
 				}
 				_changed = false;
@@ -179,13 +191,9 @@ namespace MattECS {
 			for (size_t i = 0; i < _ids.size(); i++) {
 				indices[i] = i;
 			}
-			gfx::timsort(
-				indices,
-				_less,
-				[this](size_t index) -> const C& {
-					return _values.at(index);
-				}
-			);
+			if constexpr (Orderer != no_orderer) {
+				Orderer(indices, _values);
+			}
 			_apply_vec_sort<EntityID>(_ids, indices);
 			// _apply_sort<C>(_values, indices);
 			_apply_value_sort(indices);
@@ -228,15 +236,10 @@ namespace MattECS {
 			}
 		}
 
-		bool _has_sorter;
-		std::function<bool(const C&, const C&)> _less;
-
 		// _changed is set if any are dirty
 		bool _changed;
 		// track which elements changed or at least what mut()s were called.
 		std::vector<bool> _dirty;
-		bool _has_on_change;
-		std::function<void(EntityID, const C&)> _on_change;
 
 		std::unordered_map<EntityID, unsigned int> _id_to_index;
 		std::vector<EntityID> _ids;
@@ -246,3 +249,4 @@ namespace MattECS {
 		std::unordered_set<EntityID> _deleted_items;
 	};
 }
+

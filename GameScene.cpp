@@ -96,6 +96,15 @@ sf::Texture* get_spritesheet_texture(GameManager* gm, int sheet_id) {
 	return &gm->asset_manager().get_spritesheet_texture(sheet_id);
 }
 
+bool _zindex_less(const ZIndex& t1, const ZIndex& t2) {
+	return t1.z_index < t2.z_index;
+}
+
+bool _transform_less(const Transform& t1, const Transform& t2) {
+	return t1.position.x < t2.position.x;
+}
+
+
 GameScene::GameScene(const Map level) :
 	_render_texture(),
 	_camera(sf::FloatRect(0.f, 0.f, 256.0f, 240.f)),
@@ -110,12 +119,12 @@ GameScene::GameScene(const Map level) :
 {
 	entity_manager().register_component<Sprite>();
 	entity_manager().register_component<Animation>();
-	entity_manager().register_component<Transform>();
+	entity_manager().register_component<Transform, MattECS::less_than_orderer<Transform, _transform_less>>();
 	entity_manager().register_component<Movement>();
 	entity_manager().register_component<AABB>();
 	entity_manager().register_component<Sensors>();
 	entity_manager().register_component<Mortal>();
-	entity_manager().register_component<ZIndex>();
+	entity_manager().register_component<ZIndex, MattECS::less_than_orderer<ZIndex, _zindex_less>>();
 	entity_manager().register_component<Gravity>();
 	entity_manager().register_component<LimitedLifetime>();
 	entity_manager().register_component<CTilemapRenderLayer>();
@@ -307,15 +316,6 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	const float item_size = 16.0f;
 	const float item_half = item_size / 2.0f;
 	_milestone_reached = 0;
-
-	// Sort all transforms by the X pos to make it easier to only render some items.
-	entity_manager().sort<Transform>([](const Transform& t1, const Transform& t2) {
-		return t1.position.x < t2.position.x;
-	});
-	// Sort such that higher z indices are drawn on top.
-	entity_manager().sort<ZIndex>([](const ZIndex& t1, const ZIndex& t2) {
-		return t1.z_index < t2.z_index;
-	});
 
 	auto animation_id = MARIO_FALL_ANIMATION_ID;
 	auto tex = &asset_manager.get_spritesheet_texture(MARIO_SPRITESHEET_ID);

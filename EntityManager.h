@@ -179,11 +179,15 @@ namespace MattECS {
 			);
 		}
 
-		template <typename C>
+		template <
+			typename C,
+			typename void(*Orderer)(std::vector<size_t>&, const std::vector<C>&) = no_orderer<C>,
+			typename void(*OnChange)(EntityID, const C&) = no_change_handler<C>
+		>
 		size_t register_component() {
 			size_t id = _next_component_id++;
 			auto ti = std::type_index(typeid(C));
-			ComponentContainer<C>* new_cm = new ComponentContainer<C>(MAX_ENTITIES);
+			ComponentContainer<C, Orderer>* new_cm = new ComponentContainer<C, Orderer, OnChange>(MAX_ENTITIES);
 			_cpp_types[ti] = id;
 			_components[id] = new_cm;
 			// _idautomanagers[ti] = new_cm;
@@ -199,18 +203,6 @@ namespace MattECS {
 		EntityID entity() {
 			EntityID new_id = _last_id++;
 			return new_id;
-		}
-
-		template <typename C>
-		void sort(std::function<bool(const C&, const C&)> less) {
-			auto c = _manager<C>();
-			c->set_sorter(less);
-		}
-
-		template <typename C>
-		void on_change(std::function<void(EntityID, const C&)> handler) {
-			auto c = _manager<C>();
-			c->set_on_change(handler);
 		}
 
 		template <typename C>
