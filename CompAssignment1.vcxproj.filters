@@ -104,6 +104,9 @@
     <ClInclude Include="BufferVector.h">
       <Filter>Header Files\ECS</Filter>
     </ClInclude>
+    <ClInclude Include="SparseHashmap.h">
+      <Filter>Header Files\ECS</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="config.txt">

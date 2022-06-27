@@ -217,6 +217,7 @@ void BaseScene<Derived>::OnAction(GameManager& gm, const std::vector<Action>& ac
 template <typename Derived>
 void BaseScene<Derived>::FixedUpdate(GameManager& gm) {
 	_run_systems<FixedUpdateSystem, GameManager&>(_fixed_systems, gm);
+	_entity_manager.end_frame();
 }
 
 template <typename Derived>

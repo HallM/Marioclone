@@ -130,6 +130,7 @@
     <ClInclude Include="MapManager.h" />
     <ClInclude Include="MenuScene.h" />
     <ClInclude Include="ScriptManager.h" />
+    <ClInclude Include="SparseHashmap.h" />
     <ClInclude Include="timsort.hpp" />
     <ClInclude Include="toml.hpp" />
   </ItemGroup>

@@ -181,7 +181,7 @@ namespace MattECS {
 
 		template <
 			typename C,
-			typename void(*Orderer)(std::vector<size_t>&, const std::vector<C>&) = no_orderer<C>,
+			typename void(*Orderer)(std::vector<size_t>&, SparseHashmap<EntityID, C>&) = no_orderer<C>,
 			typename void(*OnChange)(EntityID, const C&) = no_change_handler<C>
 		>
 		size_t register_component() {
@@ -259,6 +259,12 @@ namespace MattECS {
 		void finalize_update() {
 			for (auto& it : _components) {
 				it.second->update_all();
+			}
+		}
+
+		void end_frame() {
+			for (auto& it : _components) {
+				it.second->end_frame();
 			}
 		}
 	private:
