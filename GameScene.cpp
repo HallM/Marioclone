@@ -479,6 +479,7 @@ std::optional<SceneError> GameScene::Load(GameManager& gm) {
 	// physics
 
 	entity_manager().finalize_update();
+	entity_manager().end_frame();
 
 	return {};
 }

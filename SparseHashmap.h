@@ -16,13 +16,20 @@ public:
 		_keys.reserve(capacity);
 		_values.reserve(capacity);
 	}
-    SparseHashmap(SparseHashmap& to_copy) {
+    SparseHashmap(const SparseHashmap& to_copy) {
 		_key_to_index = to_copy._key_to_index;
 		_keys = to_copy._keys;
 		_values = to_copy._values;
 	}
 
     ~SparseHashmap() {}
+
+	SparseHashmap& operator=(const SparseHashmap& to_copy) {
+		_key_to_index = to_copy._key_to_index;
+		_keys = to_copy._keys;
+		_values = to_copy._values;
+		return *this;
+	}
 
 	std::vector<K>::iterator keys() {
 		return _keys.begin();
@@ -62,6 +69,14 @@ public:
 		_values.push_back(std::move(value));
 		_key_to_index[key] = index;
 	}
+	template <typename... Args>
+	void emplace(K& key, Args&&... args) {
+		size_t index = _keys.size();
+		_keys.push_back(key);
+		_values.emplace_back(std::forward<Args>(args)...);
+		_key_to_index[key] = index;
+	}
+
 	void remove(K& key) {
 		size_t index = _key_to_index[key];
 		size_t last = _keys.size() - 1;
